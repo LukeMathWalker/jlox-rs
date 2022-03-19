@@ -3,10 +3,12 @@ use std::path::PathBuf;
 
 fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
-    if args.is_empty() {
+    // The first element in the arguments list is the name of the binary.
+    // Then the actual binary arguments, flags and options.
+    if args.len() == 1 {
         repl()?;
-    } else if args.len() == 1 {
-        let filepath = PathBuf::from(&args[0]);
+    } else if args.len() == 2 {
+        let filepath = PathBuf::from(&args[1]);
         let file = std::fs::read_to_string(filepath)?;
         run(file);
     } else {
