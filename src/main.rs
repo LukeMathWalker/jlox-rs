@@ -10,7 +10,9 @@ fn main() -> Result<(), std::io::Error> {
     } else if args.len() == 2 {
         let filepath = PathBuf::from(&args[1]);
         let file = std::fs::read_to_string(filepath)?;
-        run(file);
+        if run(file).is_err() {
+            std::process::exit(65);
+        }
     } else {
         println!("Usage: jlox [script]");
         // Why 64, you ask?

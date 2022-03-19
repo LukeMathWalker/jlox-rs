@@ -8,10 +8,10 @@ pub fn repl() -> Result<(), std::io::Error> {
         print!("> ");
         stdout().flush()?;
         let mut input = String::new();
-        if std::io::stdin().read_line(&mut input).is_err() {
+        if std::io::stdin().read_line(&mut input).is_err() || input.is_empty() {
             break Ok(());
         }
         let input = input.trim().to_string();
-        run(input);
+        let _ = run(input);
     }
 }
