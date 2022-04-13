@@ -274,16 +274,12 @@ pub struct Token {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let literal = self
-            .literal
-            .as_ref()
-            .map(|s| s.to_string())
-            .unwrap_or("".to_string());
-        write!(
-            f,
-            "{} - {:?} {} {}",
-            self.line, self.ty, self.lexeme, literal
-        )
+        let literal = self.literal.as_ref().map(|s| s.to_string());
+        write!(f, "L{} - {:?} {}", self.line, self.ty, self.lexeme)?;
+        if let Some(literal) = literal {
+            write!(f, " {}", literal)?;
+        }
+        Ok(())
     }
 }
 
@@ -350,16 +346,53 @@ pub enum TokenType {
 #[cfg(test)]
 mod tests {
     use crate::scanner::{Scanner, Token};
-    use insta::assert_debug_snapshot;
+    use insta::assert_display_snapshot;
+    use std::fmt::Formatter;
 
     /// Short-hand to convert source code into a vec of tokens.
-    fn scan(source: &str) -> Vec<Token> {
-        Scanner::new(source).collect()
+    fn scan(source: &str) -> TokenSequence {
+        TokenSequence(Scanner::new(source).collect())
+    }
+
+    /// All our scanner tests are snapshot test.
+    /// Using the `Debug` representation of `Vec<Token>` leads to
+    /// very verbose snapshots. To keep it shorter, we'd like to use
+    /// their `Display` representation.
+    /// Unfortunately, `Vec` does not implement `Display` and we
+    /// cannot provide an implementation due to the orphan rule.
+    /// Therefore... wrapper type!
+    struct TokenSequence(Vec<Token>);
+
+    impl std::fmt::Display for TokenSequence {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            if self.0.is_empty() {
+                return write!(f, "[]");
+            }
+            writeln!(f, "[")?;
+            for e in &self.0 {
+                writeln!(f, "\t{},", e)?;
+            }
+            write!(f, "]")
+        }
     }
 
     #[test]
     fn an_empty_source_translates_into_an_empty_iterator() {
         let tokens = scan("");
-        assert_debug_snapshot!(tokens, @"[]")
+        assert_display_snapshot!(tokens, @"[]")
+    }
+
+    #[test]
+    fn parse_a_string() {
+        let tokens = scan(r#"s = "My name is Luça""#);
+        assert_display_snapshot!(tokens, @r###"
+        [
+        	L0 - Identifier s,
+        	L0 - Trivia  ,
+        	L0 - Equal =,
+        	L0 - Trivia  ,
+        	L0 - String "My name is Luça" My name is Luça,
+        ]
+        "###)
     }
 }
