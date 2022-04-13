@@ -383,7 +383,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_a_string() {
+    fn scan_a_string() {
         let tokens = scan(r#"s = "My name is Luça""#);
         assert_display_snapshot!(tokens, @r###"
         [
@@ -397,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_a_float_number() {
+    fn scan_a_float_number() {
         let tokens = scan(r#"x = 12.3"#);
         assert_display_snapshot!(tokens, @r###"
         [
@@ -411,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_an_integer_number() {
+    fn scan_an_integer_number() {
         let tokens = scan(r#"x = 12"#);
         assert_display_snapshot!(tokens, @r###"
         [
@@ -425,7 +425,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_multiline_source() {
+    fn scan_multiline_source() {
         let tokens = scan(
             r#"x = 12
             y = "My kid is 12""#,
