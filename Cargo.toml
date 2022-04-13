@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 itertools = "0.10.3"
+# TODO: Hack to generate docs, to be removed later
+insta = "*"
 
 [dev-dependencies]
 insta = "*"

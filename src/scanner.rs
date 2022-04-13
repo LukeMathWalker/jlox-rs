@@ -203,7 +203,7 @@ impl<'a> Scanner<'a> {
     fn is_trivia(c: &char) -> bool {
         match c {
             ' ' | '\r' | '\t' | '\n' => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -345,4 +345,21 @@ pub enum TokenType {
     // help the user understand what it was attempting to do
     // before giving up.
     SyntaxError { error_msg: Option<&'static str> },
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::scanner::{Scanner, Token};
+    use insta::assert_debug_snapshot;
+
+    /// Short-hand to convert source code into a vec of tokens.
+    fn scan(source: &str) -> Vec<Token> {
+        Scanner::new(source).collect()
+    }
+
+    #[test]
+    fn an_empty_source_translates_into_an_empty_iterator() {
+        let tokens = scan("");
+        assert_debug_snapshot!(tokens, @"[]")
+    }
 }
