@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 itertools = "0.10.3"
+
+[dev-dependencies]
+insta = "*"

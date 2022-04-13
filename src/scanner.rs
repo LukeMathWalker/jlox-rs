@@ -1,4 +1,3 @@
-use crate::interpreter::error;
 use itertools::{Itertools, MultiPeek};
 use std::collections::HashMap;
 use std::fmt::Formatter;
@@ -43,7 +42,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(mut self) -> (Vec<Token>, bool) {
+    pub fn scan_tokens(mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.scan_token();
         }
@@ -53,7 +52,7 @@ impl<'a> Scanner<'a> {
             literal: None,
             line: self.current_line,
         });
-        (self.tokens, self.has_errored)
+        self.tokens
     }
 
     fn scan_token(&mut self) {
@@ -172,7 +171,7 @@ impl<'a> Scanner<'a> {
                         }),
                     }
                 } else {
-                    self.error(&format!("Unexpected character: {c}"));
+                    self.finalize_current_token(TokenType::SyntaxError)
                 }
             }
         }
@@ -180,11 +179,6 @@ impl<'a> Scanner<'a> {
 
     fn is_alpha(c: &char) -> bool {
         c.is_ascii_alphanumeric() || c == &'_'
-    }
-
-    fn error(&mut self, message: &str) {
-        error(self.current_line, message);
-        self.has_errored = true;
     }
 
     fn finalize_current_token(&mut self, ty: TokenType) {
@@ -340,4 +334,8 @@ pub enum TokenType {
 
     // End of file
     Eof,
+
+    // Special token to signal that we encountered a token
+    // that we couldn't successfully scan.
+    SyntaxError
 }
