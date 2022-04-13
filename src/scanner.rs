@@ -466,4 +466,18 @@ mod tests {
         ]
         "###)
     }
+
+    #[test]
+    fn syntax_error() {
+        let tokens = scan(r#"x = "Missing quote, ops"#);
+        assert_display_snapshot!(tokens, @r###"
+        [
+        	L0 - Identifier x,
+        	L0 - Trivia  ,
+        	L0 - Equal =,
+        	L0 - Trivia  ,
+        	L0 - SyntaxError { error_msg: Some("Unterminated string") } "Missing quote, ops,
+        ]
+        "###)
+    }
 }
