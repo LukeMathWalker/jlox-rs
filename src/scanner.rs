@@ -9,7 +9,6 @@ pub struct Scanner<'a> {
     current_token_buffer: Vec<char>,
     current_line: u64,
     keywords: HashMap<String, TokenType>,
-    has_errored: bool,
 }
 
 impl<'a> Scanner<'a> {
@@ -37,7 +36,6 @@ impl<'a> Scanner<'a> {
             tokens: Vec::new(),
             current_token_buffer: Vec::new(),
             current_line: 0,
-            has_errored: false,
             keywords,
         }
     }
@@ -116,7 +114,7 @@ impl<'a> Scanner<'a> {
             '"' => {
                 self.advance_until('"');
                 if self.is_at_end() {
-                    self.error("Unterminated string");
+                    self.finalize_error_token(Some("Unterminated string"));
                     return;
                 }
                 // Eat the closing `"`
@@ -149,7 +147,7 @@ impl<'a> Scanner<'a> {
                         literal: Some(Literal::Number(f)),
                         line: self.current_line,
                     }),
-                    Err(e) => self.error(&format!("Failed to parse number: {e}")),
+                    Err(_) => self.finalize_error_token(Some("Failed to parse number")),
                 }
             }
             c => {
@@ -171,7 +169,7 @@ impl<'a> Scanner<'a> {
                         }),
                     }
                 } else {
-                    self.finalize_current_token(TokenType::SyntaxError)
+                    self.finalize_error_token(None)
                 }
             }
         }
@@ -179,6 +177,10 @@ impl<'a> Scanner<'a> {
 
     fn is_alpha(c: &char) -> bool {
         c.is_ascii_alphanumeric() || c == &'_'
+    }
+
+    fn finalize_error_token(&mut self, error_msg: Option<&'static str>) {
+        self.finalize_current_token(TokenType::SyntaxError { error_msg })
     }
 
     fn finalize_current_token(&mut self, ty: TokenType) {
@@ -337,5 +339,8 @@ pub enum TokenType {
 
     // Special token to signal that we encountered a token
     // that we couldn't successfully scan.
-    SyntaxError
+    // The scanner can choose to specify an error message to
+    // help the user understand what it was attempting to do
+    // before giving up.
+    SyntaxError { error_msg: Option<&'static str> },
 }
