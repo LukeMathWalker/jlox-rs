@@ -395,4 +395,75 @@ mod tests {
         ]
         "###)
     }
+
+    #[test]
+    fn parse_a_float_number() {
+        let tokens = scan(r#"x = 12.3"#);
+        assert_display_snapshot!(tokens, @r###"
+        [
+        	L0 - Identifier x,
+        	L0 - Trivia  ,
+        	L0 - Equal =,
+        	L0 - Trivia  ,
+        	L0 - Number 12.3 12.3,
+        ]
+        "###)
+    }
+
+    #[test]
+    fn parse_an_integer_number() {
+        let tokens = scan(r#"x = 12"#);
+        assert_display_snapshot!(tokens, @r###"
+        [
+        	L0 - Identifier x,
+        	L0 - Trivia  ,
+        	L0 - Equal =,
+        	L0 - Trivia  ,
+        	L0 - Number 12 12,
+        ]
+        "###)
+    }
+
+    #[test]
+    fn parse_multiline_source() {
+        let tokens = scan(
+            r#"x = 12
+            y = "My kid is 12""#,
+        );
+        assert_display_snapshot!(tokens, @r###"
+        [
+        	L0 - Identifier x,
+        	L0 - Trivia  ,
+        	L0 - Equal =,
+        	L0 - Trivia  ,
+        	L0 - Number 12 12,
+        	L1 - Trivia 
+                    ,
+        	L1 - Identifier y,
+        	L1 - Trivia  ,
+        	L1 - Equal =,
+        	L1 - Trivia  ,
+        	L1 - String "My kid is 12" My kid is 12,
+        ]
+        "###)
+    }
+
+    #[test]
+    fn parse_multiline_string() {
+        let tokens = scan(
+            r#"x = "My kid is 12.
+            How old is yours?""#,
+        );
+        assert_display_snapshot!(tokens, @r###"
+        [
+        	L0 - Identifier x,
+        	L0 - Trivia  ,
+        	L0 - Equal =,
+        	L0 - Trivia  ,
+        	L1 - String "My kid is 12.
+                    How old is yours?" My kid is 12.
+                    How old is yours?,
+        ]
+        "###)
+    }
 }
