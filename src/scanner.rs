@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_multiline_string() {
+    fn scan_multiline_string() {
         let tokens = scan(
             r#"x = "My kid is 12.
             How old is yours?""#,
