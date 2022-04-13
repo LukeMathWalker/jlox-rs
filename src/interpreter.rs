@@ -6,8 +6,7 @@ use crate::scanner::Scanner;
 /// The error type does not contain any information since `run` already takes care, internally,
 /// to report the errors it has encountered (i.e. print error messages to stdout).
 pub fn run(source: String) -> Result<(), ()> {
-    let tokens = Scanner::new(&source).scan_tokens();
-    for token in tokens {
+    for token in Scanner::new(&source) {
         println!("{token}");
     }
     Ok(())
