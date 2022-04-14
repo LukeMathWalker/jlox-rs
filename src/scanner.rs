@@ -272,6 +272,12 @@ pub struct Token {
     line: u64,
 }
 
+impl Token {
+    pub fn ty(&self) -> TokenType {
+        self.ty
+    }
+}
+
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let literal = self.literal.as_ref().map(|s| s.to_string());
@@ -283,7 +289,7 @@ impl std::fmt::Display for Token {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
