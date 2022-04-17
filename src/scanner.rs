@@ -1,4 +1,4 @@
-use itertools::{Itertools, MultiPeek};
+use multipeek::{IteratorExt as _, MultiPeek};
 use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::str::{Chars, FromStr};
@@ -117,7 +117,7 @@ impl<'a> Scanner<'a> {
             d if d.is_ascii_digit() => {
                 self.advance_while_true(|c| c.is_ascii_digit());
                 if self.peek() == Some(&'.') {
-                    if let Some(c) = self.peek() {
+                    if let Some(c) = self.peek_nth(1) {
                         if c.is_ascii_digit() {
                             // Consume `.`
                             self.advance();
@@ -212,7 +212,6 @@ impl<'a> Scanner<'a> {
             self.advance();
             true
         } else {
-            self.source.reset_peek();
             false
         }
     }
@@ -235,17 +234,18 @@ impl<'a> Scanner<'a> {
             }
             break;
         }
-        self.source.reset_peek();
     }
 
     fn peek(&mut self) -> Option<&char> {
         self.source.peek()
     }
 
+    fn peek_nth(&mut self, n: usize) -> Option<&char> {
+        self.source.peek_nth(n)
+    }
+
     fn is_at_end(&mut self) -> bool {
-        let b = self.peek().is_none();
-        self.source.reset_peek();
-        b
+        self.peek().is_none()
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::scanner::{Token, TokenType};
 use std::iter::Peekable;
 
+#[derive(PartialEq, Eq, Copy, Clone)]
 enum ParsingMode {
     ErrorRecovery,
     Normal,
@@ -113,11 +114,13 @@ where
     }
 
     fn advance_until_recovery_point(&mut self) {
-        let _: Option<()> = {
+        // Using a closure that returns `Option` to be able to use the `?` operator.
+        // Looking forward to try blocks.
+        let mut recover = || -> Option<()> {
             loop {
                 let current = self.tokens.next()?;
                 if current.ty() == TokenType::Semicolon {
-                    return;
+                    break None;
                 }
                 let upcoming = self.tokens.peek()?;
                 match upcoming.ty() {
@@ -129,12 +132,13 @@ where
                     | TokenType::Print
                     | TokenType::Return
                     | TokenType::While => {
-                        return;
+                        break None;
                     }
                     _ => {}
                 }
             }
         };
+        let _ = recover();
     }
 
     fn expect(&mut self, token_type: TokenType) -> Option<Token> {
