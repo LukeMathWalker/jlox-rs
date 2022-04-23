@@ -81,7 +81,6 @@ where
         while let Some(operator) =
             self.advance_on_match(&[TokenDiscriminant::Slash, TokenDiscriminant::Star])
         {
-            dbg!(&operator);
             expr = Expression::binary(expr, operator, self.unary()?);
         }
         Some(expr)
