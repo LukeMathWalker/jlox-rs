@@ -135,7 +135,7 @@ impl LoxValue {
         } else if let Self::Boolean(b) = self {
             *b
         } else {
-            false
+            true
         }
     }
 
