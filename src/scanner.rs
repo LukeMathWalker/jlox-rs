@@ -250,7 +250,7 @@ impl<'a> Scanner<'a> {
 }
 
 #[derive(Debug)]
-enum Literal {
+pub enum Literal {
     String(String),
     Number(f64),
 }
@@ -275,6 +275,10 @@ pub struct Token {
 impl Token {
     pub fn ty(&self) -> TokenType {
         self.ty
+    }
+
+    pub fn literal(&self) -> &Option<Literal> {
+        &self.literal
     }
 }
 

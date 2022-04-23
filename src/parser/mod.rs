@@ -1,4 +1,5 @@
 use crate::scanner::{Token, TokenType};
+use std::fmt::Write;
 use std::iter::Peekable;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
@@ -7,7 +8,7 @@ enum ParsingMode {
     Normal,
 }
 
-struct Parser<TokenIter>
+pub struct Parser<TokenIter>
 where
     TokenIter: Iterator<Item = Token>,
 {
@@ -95,7 +96,7 @@ where
             Some(Expression::number(t))
         } else if let Some(t) = self.advance_on_match(&[TokenType::String]) {
             Some(Expression::string(t))
-        } else if let Some(t) = self.advance_on_match(&[TokenType::LeftParen]) {
+        } else if self.advance_on_match(&[TokenType::LeftParen]).is_some() {
             let expr = self.expression()?;
             self.expect(TokenType::RightParen)?;
             Some(Expression::grouping(expr))
@@ -223,3 +224,75 @@ pub enum LiteralExpression {
 }
 
 pub struct GroupingExpression(Box<Expression>);
+
+#[allow(unused)]
+pub fn display_ast(e: &Expression) -> Result<String, std::fmt::Error> {
+    let mut s = String::new();
+    _display_ast(&mut s, e, 0)?;
+    Ok(s)
+}
+
+fn _display_ast(w: &mut impl Write, e: &Expression, depth: u8) -> Result<(), std::fmt::Error> {
+    // Can we avoid an allocation for the indentation string here?
+    write!(w, "{}", " ".repeat(depth as usize))?;
+    match e {
+        Expression::Binary(b) => {
+            writeln!(w, "Binary")?;
+            _display_ast(w, &b.left, depth + 1)?;
+            _display_token(w, &b.operator, depth + 1)?;
+            _display_ast(w, &b.right, depth + 1)?;
+        }
+        Expression::Unary(u) => {
+            writeln!(w, "Unary")?;
+            _display_token(w, &u.operator, depth + 1)?;
+            _display_ast(w, &u.operand, depth + 1)?;
+        }
+        Expression::Literal(l) => {
+            writeln!(w, "Literal")?;
+            match l {
+                LiteralExpression::Boolean(t)
+                | LiteralExpression::Null(t)
+                | LiteralExpression::String(t)
+                | LiteralExpression::Number(t) => {
+                    _display_token(w, t, depth + 1)?;
+                }
+            }
+        }
+        Expression::Grouping(g) => {
+            writeln!(w, "Grouping")?;
+            _display_ast(w, &g.0, depth + 1)?;
+        }
+    }
+    Ok(())
+}
+
+fn _display_token(w: &mut impl Write, t: &Token, depth: u8) -> std::fmt::Result {
+    // Can we avoid an allocation for the indentation string here?
+    write!(w, "{}", " ".repeat(depth as usize))?;
+    if let Some(l) = t.literal() {
+        writeln!(w, " {:?} \"{}\"", t.ty(), l)
+    } else {
+        writeln!(w, " {:?}", t.ty())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::{display_ast, Parser};
+    use crate::scanner::Scanner;
+    use insta::assert_display_snapshot;
+
+    fn parse<'a>(source: &'a str) -> String {
+        let e = Parser::parse(Scanner::new(source)).unwrap();
+        display_ast(&e).unwrap()
+    }
+
+    #[test]
+    fn parse_string_expression() {
+        let ast = parse(r#""My name is Luça""#);
+        assert_display_snapshot!(ast, @r#"
+        Literal
+          String "My name is Luça"
+        "#)
+    }
+}
