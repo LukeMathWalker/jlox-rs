@@ -1,6 +1,6 @@
 pub mod ast;
 
-use crate::scanner::{Token, TokenDiscriminant};
+use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
 use std::fmt::Write;
 use std::iter::Peekable;
@@ -241,11 +241,13 @@ fn _display_ast(w: &mut impl Write, e: &Expression, depth: u8) -> Result<(), std
 fn _display_token(w: &mut impl Write, t: &Token, depth: u8) -> std::fmt::Result {
     // Can we avoid an allocation for the indentation string here?
     write!(w, "{}", " ".repeat(depth as usize))?;
-    if let Some(l) = t.literal() {
-        writeln!(w, "{:?} \"{}\"", t.discriminant(), l)
-    } else {
-        writeln!(w, "{:?}", t.discriminant())
+    write!(w, "{:?}", t.discriminant())?;
+    match t.ty() {
+        TokenType::String(s) => writeln!(w, " \"{}\"", s)?,
+        TokenType::Number(n) => writeln!(w, " {}", n)?,
+        _ => writeln!(w, "")?,
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -273,7 +275,7 @@ mod tests {
         let ast = parse(r#"12.65"#);
         assert_display_snapshot!(ast, @r###"
         Literal
-         Number "12.65"
+         Number 12.65
         "###)
     }
 
@@ -283,10 +285,10 @@ mod tests {
         assert_display_snapshot!(ast, @r###"
         Binary
          Literal
-          Number "12.65"
+          Number 12.65
          Plus
          Literal
-          Number "2"
+          Number 2
         "###)
     }
 
@@ -296,14 +298,14 @@ mod tests {
         assert_display_snapshot!(ast, @r###"
         Binary
          Literal
-          Number "12.65"
+          Number 12.65
          Plus
          Binary
           Literal
-           Number "2"
+           Number 2
           Star
           Literal
-           Number "3"
+           Number 3
         "###)
     }
 
@@ -315,13 +317,13 @@ mod tests {
          Grouping
           Binary
            Literal
-            Number "12.65"
+            Number 12.65
            Plus
            Literal
-            Number "2"
+            Number 2
          Star
          Literal
-          Number "3"
+          Number 3
         "###)
     }
 
@@ -337,20 +339,20 @@ mod tests {
             Grouping
              Binary
               Literal
-               Number "12"
+               Number 12
               Plus
               Literal
-               Number "2"
+               Number 2
             Star
             Literal
-             Number "3"
+             Number 3
          EqualEqual
          Binary
           Literal
-           Number "50"
+           Number 50
           Slash
           Literal
-           Number "12"
+           Number 12
         "###)
     }
 }

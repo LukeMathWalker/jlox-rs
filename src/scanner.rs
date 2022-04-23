@@ -109,9 +109,8 @@ impl<'a> Scanner<'a> {
                 let lexeme = self.finalize_buffer_into_lexeme();
                 let literal = lexeme.trim_matches('"').to_string();
                 Token {
-                    ty: TokenType::String(literal.clone()),
+                    ty: TokenType::String(literal),
                     lexeme,
-                    literal: Some(Literal::String(literal)),
                     line: self.current_line,
                 }
             }
@@ -131,7 +130,6 @@ impl<'a> Scanner<'a> {
                     Ok(f) => Token {
                         ty: TokenType::Number(f),
                         lexeme,
-                        literal: Some(Literal::Number(f)),
                         line: self.current_line,
                     },
                     Err(_) => self.finalize_error_token(Some("Failed to parse number")),
@@ -145,13 +143,11 @@ impl<'a> Scanner<'a> {
                         None => Token {
                             ty: TokenType::Identifier,
                             lexeme,
-                            literal: None,
                             line: self.current_line,
                         },
                         Some(ty) => Token {
                             ty: ty.clone(),
                             lexeme,
-                            literal: None,
                             line: self.current_line,
                         },
                     }
@@ -179,7 +175,6 @@ impl<'a> Scanner<'a> {
         Token {
             ty,
             lexeme,
-            literal: None,
             line: self.current_line,
         }
     }
@@ -269,7 +264,6 @@ impl std::fmt::Display for Literal {
 pub struct Token {
     ty: TokenType,
     lexeme: String,
-    literal: Option<Literal>,
     line: u64,
 }
 
@@ -281,18 +275,25 @@ impl Token {
     pub fn discriminant(&self) -> TokenDiscriminant {
         (&self.ty).into()
     }
-
-    pub fn literal(&self) -> &Option<Literal> {
-        &self.literal
-    }
 }
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let literal = self.literal.as_ref().map(|s| s.to_string());
-        write!(f, "L{} - {:?} {}", self.line, self.ty, self.lexeme)?;
-        if let Some(literal) = literal {
-            write!(f, " {}", literal)?;
+        write!(
+            f,
+            "L{} - {:?} {}",
+            self.line,
+            self.discriminant(),
+            self.lexeme
+        )?;
+        match &self.ty {
+            TokenType::String(s) => {
+                write!(f, " {}", s)?;
+            }
+            TokenType::Number(n) => {
+                write!(f, " {}", n)?;
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -492,7 +493,7 @@ mod tests {
         	L0 - Trivia  ,
         	L0 - Equal =,
         	L0 - Trivia  ,
-        	L0 - SyntaxError { error_msg: Some("Unterminated string") } "Missing quote, ops,
+        	L0 - SyntaxError "Missing quote, ops,
         ]
         "###)
     }
