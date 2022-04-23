@@ -359,4 +359,51 @@ mod tests {
            Number "3"
         "###)
     }
+
+    #[test]
+    fn parse_binary_with_parens() {
+        let ast = parse(r#"(12.65 + 2) * 3"#);
+        assert_display_snapshot!(ast, @r###"
+        Binary
+         Grouping
+          Binary
+           Literal
+            Number "12.65"
+           Plus
+           Literal
+            Number "2"
+         Star
+         Literal
+          Number "3"
+        "###)
+    }
+
+    #[test]
+    fn parse_complex_equality() {
+        let ast = parse(r#"!((12 + 2) * 3) == 50 / 12"#);
+        assert_display_snapshot!(ast, @r###"
+        Binary
+         Unary
+          Bang
+          Grouping
+           Binary
+            Grouping
+             Binary
+              Literal
+               Number "12"
+              Plus
+              Literal
+               Number "2"
+            Star
+            Literal
+             Number "3"
+         EqualEqual
+         Binary
+          Literal
+           Number "50"
+          Slash
+          Literal
+           Number "12"
+        "###)
+    }
 }
