@@ -16,7 +16,7 @@ pub fn run(source: String) -> Result<(), ()> {
                 Ok(())
             }
             Err(e) => {
-                println!("Runtime error!\n{:?}", e);
+                println!("Runtime error!\nToken:{:?}\nMessage:{}", e.t, e.msg);
                 Err(())
             }
         }

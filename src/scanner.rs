@@ -246,21 +246,6 @@ impl<'a> Scanner<'a> {
 }
 
 #[derive(Debug)]
-pub enum Literal {
-    String(String),
-    Number(f64),
-}
-
-impl std::fmt::Display for Literal {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Literal::String(s) => s.fmt(f),
-            Literal::Number(n) => n.fmt(f),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Token {
     ty: TokenType,
     lexeme: String,
