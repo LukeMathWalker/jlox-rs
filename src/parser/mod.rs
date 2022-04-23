@@ -12,7 +12,7 @@ pub struct Parser<TokenIter>
 where
     TokenIter: Iterator<Item = Token>,
 {
-    tokens: Peekable<TokenIter>,
+    tokens: Peekable<Source<TokenIter>>,
     mode: ParsingMode,
 }
 
@@ -22,7 +22,7 @@ where
 {
     pub fn parse(tokens: TokenIter) -> Option<Expression> {
         let mut parser = Self {
-            tokens: tokens.peekable(),
+            tokens: Source(tokens).peekable(),
             mode: ParsingMode::Normal,
         };
         let expr = parser.expression();
@@ -74,6 +74,7 @@ where
         let mut expr = self.unary()?;
 
         while let Some(operator) = self.advance_on_match(&[TokenType::Slash, TokenType::Star]) {
+            dbg!(&operator);
             expr = Expression::binary(expr, operator, self.unary()?);
         }
         Some(expr)
@@ -155,6 +156,30 @@ where
             self.tokens.next()
         } else {
             None
+        }
+    }
+}
+
+/// Our parser does not care about trivia tokens.
+/// We give `Source` to our parser instead of the raw token stream: `Source` wraps the underlying
+/// token stream and makes sure to skip all trivia tokens, making them invisible to the parser.
+struct Source<TokenIter>(TokenIter)
+where
+    TokenIter: Iterator<Item = Token>;
+
+impl<TokenIter> Iterator for Source<TokenIter>
+where
+    TokenIter: Iterator<Item = Token>,
+{
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.0.next() {
+                None => break None,
+                Some(t) if t.ty() == TokenType::Trivia => continue,
+                Some(t) => break Some(t),
+            }
         }
     }
 }
@@ -270,9 +295,9 @@ fn _display_token(w: &mut impl Write, t: &Token, depth: u8) -> std::fmt::Result 
     // Can we avoid an allocation for the indentation string here?
     write!(w, "{}", " ".repeat(depth as usize))?;
     if let Some(l) = t.literal() {
-        writeln!(w, " {:?} \"{}\"", t.ty(), l)
+        writeln!(w, "{:?} \"{}\"", t.ty(), l)
     } else {
-        writeln!(w, " {:?}", t.ty())
+        writeln!(w, "{:?}", t.ty())
     }
 }
 
@@ -290,9 +315,48 @@ mod tests {
     #[test]
     fn parse_string_expression() {
         let ast = parse(r#""My name is Luça""#);
-        assert_display_snapshot!(ast, @r#"
+        assert_display_snapshot!(ast, @r###"
         Literal
-          String "My name is Luça"
-        "#)
+         String "My name is Luça"
+        "###)
+    }
+
+    #[test]
+    fn parse_number() {
+        let ast = parse(r#"12.65"#);
+        assert_display_snapshot!(ast, @r###"
+        Literal
+         Number "12.65"
+        "###)
+    }
+
+    #[test]
+    fn parse_binary() {
+        let ast = parse(r#"12.65 + 2"#);
+        assert_display_snapshot!(ast, @r###"
+        Binary
+         Literal
+          Number "12.65"
+         Plus
+         Literal
+          Number "2"
+        "###)
+    }
+
+    #[test]
+    fn parse_binary_without_parens() {
+        let ast = parse(r#"12.65 + 2 * 3"#);
+        assert_display_snapshot!(ast, @r###"
+        Binary
+         Literal
+          Number "12.65"
+         Plus
+         Binary
+          Literal
+           Number "2"
+          Star
+          Literal
+           Number "3"
+        "###)
     }
 }
