@@ -282,7 +282,7 @@ mod tests {
     use crate::scanner::Scanner;
     use insta::assert_display_snapshot;
 
-    fn parse<'a>(source: &'a str) -> String {
+    fn parse(source: &str) -> String {
         let e = Parser::parse(Scanner::new(source)).unwrap();
         display_ast(&e).unwrap()
     }
