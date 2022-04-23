@@ -360,6 +360,24 @@ pub enum TokenType {
     SyntaxError { error_msg: Option<&'static str> },
 }
 
+impl TokenType {
+    pub fn string(self) -> Option<String> {
+        if let Self::String(s) = self {
+            Some(s)
+        } else {
+            None
+        }
+    }
+
+    pub fn number(self) -> Option<f64> {
+        if let Self::Number(n) = self {
+            Some(n)
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::scanner::{Scanner, Token};
