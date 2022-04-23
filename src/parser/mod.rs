@@ -1,6 +1,6 @@
 pub mod ast;
 
-use crate::scanner::{Token, TokenType};
+use crate::scanner::{Token, TokenDiscriminant};
 use ast::{Expression, LiteralExpression};
 use std::fmt::Write;
 use std::iter::Peekable;
@@ -43,7 +43,7 @@ where
         let mut expr = self.comparison()?;
 
         while let Some(operator) =
-            self.advance_on_match(&[TokenType::EqualEqual, TokenType::EqualEqual])
+            self.advance_on_match(&[TokenDiscriminant::EqualEqual, TokenDiscriminant::EqualEqual])
         {
             expr = Expression::binary(expr, operator, self.comparison()?);
         }
@@ -54,10 +54,10 @@ where
         let mut expr = self.term()?;
 
         while let Some(operator) = self.advance_on_match(&[
-            TokenType::Greater,
-            TokenType::GreaterEqual,
-            TokenType::Less,
-            TokenType::LessEqual,
+            TokenDiscriminant::Greater,
+            TokenDiscriminant::GreaterEqual,
+            TokenDiscriminant::Less,
+            TokenDiscriminant::LessEqual,
         ]) {
             expr = Expression::binary(expr, operator, self.term()?);
         }
@@ -67,7 +67,9 @@ where
     fn term(&mut self) -> Option<Expression> {
         let mut expr = self.factor()?;
 
-        while let Some(operator) = self.advance_on_match(&[TokenType::Minus, TokenType::Plus]) {
+        while let Some(operator) =
+            self.advance_on_match(&[TokenDiscriminant::Minus, TokenDiscriminant::Plus])
+        {
             expr = Expression::binary(expr, operator, self.factor()?);
         }
         Some(expr)
@@ -76,7 +78,9 @@ where
     fn factor(&mut self) -> Option<Expression> {
         let mut expr = self.unary()?;
 
-        while let Some(operator) = self.advance_on_match(&[TokenType::Slash, TokenType::Star]) {
+        while let Some(operator) =
+            self.advance_on_match(&[TokenDiscriminant::Slash, TokenDiscriminant::Star])
+        {
             dbg!(&operator);
             expr = Expression::binary(expr, operator, self.unary()?);
         }
@@ -84,7 +88,9 @@ where
     }
 
     fn unary(&mut self) -> Option<Expression> {
-        if let Some(operator) = self.advance_on_match(&[TokenType::Bang, TokenType::Minus]) {
+        if let Some(operator) =
+            self.advance_on_match(&[TokenDiscriminant::Bang, TokenDiscriminant::Minus])
+        {
             Some(Expression::unary(operator, self.unary()?))
         } else {
             self.primary()
@@ -92,17 +98,21 @@ where
     }
 
     fn primary(&mut self) -> Option<Expression> {
-        if let Some(t) = self.advance_on_match(&[TokenType::True, TokenType::False]) {
+        if let Some(t) = self.advance_on_match(&[TokenDiscriminant::True, TokenDiscriminant::False])
+        {
             Some(Expression::boolean(t))
-        } else if let Some(t) = self.advance_on_match(&[TokenType::Nil]) {
+        } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::Nil]) {
             Some(Expression::null(t))
-        } else if let Some(t) = self.advance_on_match(&[TokenType::Number]) {
+        } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::Number]) {
             Some(Expression::number(t))
-        } else if let Some(t) = self.advance_on_match(&[TokenType::String]) {
+        } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::String]) {
             Some(Expression::string(t))
-        } else if self.advance_on_match(&[TokenType::LeftParen]).is_some() {
+        } else if self
+            .advance_on_match(&[TokenDiscriminant::LeftParen])
+            .is_some()
+        {
             let expr = self.expression()?;
-            self.expect(TokenType::RightParen)?;
+            self.expect(TokenDiscriminant::RightParen)?;
             Some(Expression::grouping(expr))
         } else {
             self.mode = ParsingMode::ErrorRecovery;
@@ -110,9 +120,9 @@ where
         }
     }
 
-    fn advance_on_match(&mut self, token_types: &[TokenType]) -> Option<Token> {
+    fn advance_on_match(&mut self, token_types: &[TokenDiscriminant]) -> Option<Token> {
         let upcoming = self.tokens.peek()?;
-        if token_types.contains(&upcoming.ty()) {
+        if token_types.contains(&upcoming.discriminant()) {
             return self.advance();
         }
         None
@@ -124,19 +134,19 @@ where
         let mut recover = || -> Option<()> {
             loop {
                 let current = self.tokens.next()?;
-                if current.ty() == TokenType::Semicolon {
+                if current.discriminant() == TokenDiscriminant::Semicolon {
                     break None;
                 }
                 let upcoming = self.tokens.peek()?;
-                match upcoming.ty() {
-                    TokenType::Class
-                    | TokenType::Fun
-                    | TokenType::Var
-                    | TokenType::For
-                    | TokenType::If
-                    | TokenType::Print
-                    | TokenType::Return
-                    | TokenType::While => {
+                match upcoming.discriminant() {
+                    TokenDiscriminant::Class
+                    | TokenDiscriminant::Fun
+                    | TokenDiscriminant::Var
+                    | TokenDiscriminant::For
+                    | TokenDiscriminant::If
+                    | TokenDiscriminant::Print
+                    | TokenDiscriminant::Return
+                    | TokenDiscriminant::While => {
                         break None;
                     }
                     _ => {}
@@ -146,7 +156,7 @@ where
         let _ = recover();
     }
 
-    fn expect(&mut self, token_type: TokenType) -> Option<Token> {
+    fn expect(&mut self, token_type: TokenDiscriminant) -> Option<Token> {
         let t = self.advance_on_match(&[token_type]);
         if t.is_none() {
             self.mode = ParsingMode::ErrorRecovery;
@@ -180,7 +190,7 @@ where
         loop {
             match self.0.next() {
                 None => break None,
-                Some(t) if t.ty() == TokenType::Trivia => continue,
+                Some(t) if t.discriminant() == TokenDiscriminant::Trivia => continue,
                 Some(t) => break Some(t),
             }
         }
@@ -232,9 +242,9 @@ fn _display_token(w: &mut impl Write, t: &Token, depth: u8) -> std::fmt::Result 
     // Can we avoid an allocation for the indentation string here?
     write!(w, "{}", " ".repeat(depth as usize))?;
     if let Some(l) = t.literal() {
-        writeln!(w, "{:?} \"{}\"", t.ty(), l)
+        writeln!(w, "{:?} \"{}\"", t.discriminant(), l)
     } else {
-        writeln!(w, "{:?}", t.ty())
+        writeln!(w, "{:?}", t.discriminant())
     }
 }
 

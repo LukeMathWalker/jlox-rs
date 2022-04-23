@@ -2,6 +2,7 @@ use multipeek::{IteratorExt as _, MultiPeek};
 use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::str::{Chars, FromStr};
+use strum_macros::EnumDiscriminants;
 
 pub struct Scanner<'a> {
     source: MultiPeek<Chars<'a>>,
@@ -108,7 +109,7 @@ impl<'a> Scanner<'a> {
                 let lexeme = self.finalize_buffer_into_lexeme();
                 let literal = lexeme.trim_matches('"').to_string();
                 Token {
-                    ty: TokenType::String,
+                    ty: TokenType::String(literal.clone()),
                     lexeme,
                     literal: Some(Literal::String(literal)),
                     line: self.current_line,
@@ -128,7 +129,7 @@ impl<'a> Scanner<'a> {
                 let lexeme = String::from_iter(self.current_token_buffer.drain(..));
                 match f64::from_str(&lexeme) {
                     Ok(f) => Token {
-                        ty: TokenType::Number,
+                        ty: TokenType::Number(f),
                         lexeme,
                         literal: Some(Literal::Number(f)),
                         line: self.current_line,
@@ -148,7 +149,7 @@ impl<'a> Scanner<'a> {
                             line: self.current_line,
                         },
                         Some(ty) => Token {
-                            ty: *ty,
+                            ty: ty.clone(),
                             lexeme,
                             literal: None,
                             line: self.current_line,
@@ -273,8 +274,12 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn ty(&self) -> TokenType {
-        self.ty
+    pub fn ty(&self) -> &TokenType {
+        &self.ty
+    }
+
+    pub fn discriminant(&self) -> TokenDiscriminant {
+        (&self.ty).into()
     }
 
     pub fn literal(&self) -> &Option<Literal> {
@@ -293,7 +298,8 @@ impl std::fmt::Display for Token {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, EnumDiscriminants)]
+#[strum_discriminants(name(TokenDiscriminant))]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
@@ -320,14 +326,15 @@ pub enum TokenType {
 
     // Literals
     Identifier,
-    String,
-    Number,
+    String(String),
+    Number(f64),
+    False,
+    True,
 
     // Keywords
     And,
     Class,
     Else,
-    False,
     Fun,
     For,
     If,
@@ -337,7 +344,6 @@ pub enum TokenType {
     Return,
     Super,
     This,
-    True,
     Var,
     While,
 

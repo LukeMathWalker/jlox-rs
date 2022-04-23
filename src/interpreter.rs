@@ -1,6 +1,6 @@
 use crate::parser::ast::LiteralExpression;
 use crate::parser::{ast::Expression, Parser};
-use crate::scanner::{Scanner, TokenType};
+use crate::scanner::{Scanner, TokenDiscriminant};
 
 /// Interpret the jlox source code passed as input.
 ///
@@ -25,7 +25,7 @@ fn eval(e: &Expression) -> LoxValue {
         }
         Expression::Literal(l) => match l {
             LiteralExpression::Boolean(t) => {
-                if t.ty() == TokenType::True {
+                if t.discriminant() == TokenDiscriminant::True {
                     LoxValue::Boolean(true)
                 } else {
                     LoxValue::Boolean(false)
