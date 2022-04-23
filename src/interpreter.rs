@@ -1,5 +1,6 @@
-use crate::parser::Parser;
-use crate::scanner::Scanner;
+use crate::parser::ast::LiteralExpression;
+use crate::parser::{ast::Expression, Parser};
+use crate::scanner::{Scanner, TokenType};
 
 /// Interpret the jlox source code passed as input.
 ///
@@ -7,6 +8,46 @@ use crate::scanner::Scanner;
 /// The error type does not contain any information since `run` already takes care, internally,
 /// to report the errors it has encountered (i.e. print error messages to stdout).
 pub fn run(source: String) -> Result<(), ()> {
-    let _parser = Parser::parse(Scanner::new(&source));
+    let e = Parser::parse(Scanner::new(&source));
+    if let Some(e) = e {
+        eval(&e);
+    }
     Ok(())
+}
+
+fn eval(e: &Expression) -> LoxValue {
+    match e {
+        Expression::Binary(b) => {
+            todo!()
+        }
+        Expression::Unary(_) => {
+            todo!()
+        }
+        Expression::Literal(l) => match l {
+            LiteralExpression::Boolean(t) => {
+                if t.ty() == TokenType::True {
+                    LoxValue::Boolean(true)
+                } else {
+                    LoxValue::Boolean(false)
+                }
+            }
+            LiteralExpression::Null(_) => LoxValue::Null,
+            LiteralExpression::String(s) => {
+                todo!()
+            }
+            LiteralExpression::Number(_) => {
+                todo!()
+            }
+        },
+        Expression::Grouping(_) => {
+            todo!()
+        }
+    }
+}
+
+enum LoxValue {
+    Boolean(bool),
+    Null,
+    String(String),
+    Number(f64),
 }
