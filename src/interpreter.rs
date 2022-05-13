@@ -13,7 +13,7 @@ use crate::scanner::{Scanner, Token, TokenDiscriminant};
 pub fn run(source: String) -> Result<(), ()> {
     if let Ok(statements) = Parser::parse(Scanner::new(&source)) {
         for statement in statements {
-            if let Err(e) = eval_statement(statement) {
+            if let Err(e) = execute(statement) {
                 println!("Runtime error!\nToken:{:?}\nMessage:{}", e.t, e.msg);
                 return Err(());
             }
@@ -25,7 +25,7 @@ pub fn run(source: String) -> Result<(), ()> {
     }
 }
 
-fn eval_statement(s: Statement) -> Result<(), RuntimeError> {
+fn execute(s: Statement) -> Result<(), RuntimeError> {
     match s {
         Statement::Expression(ExpressionStatement(e)) => {
             eval(e)?;
