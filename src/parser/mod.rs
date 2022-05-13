@@ -423,4 +423,18 @@ mod tests {
             Number 12
         "###)
     }
+
+    #[test]
+    fn parse_print_statement() {
+        let ast = parse(r#"print 2+5;"#);
+        assert_display_snapshot!(ast, @r###"
+        Print
+         Binary
+          Literal
+           Number 2
+          Plus
+          Literal
+           Number 5
+        "###)
+    }
 }
