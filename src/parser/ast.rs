@@ -1,5 +1,14 @@
 use crate::scanner::Token;
 
+pub enum Statement {
+    Expression(ExpressionStatement),
+    Print(PrintStatement),
+}
+
+pub struct ExpressionStatement(pub Expression);
+
+pub struct PrintStatement(pub Expression);
+
 pub enum Expression {
     Binary(BinaryExpression),
     Unary(UnaryExpression),

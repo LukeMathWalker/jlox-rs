@@ -1,5 +1,6 @@
 pub mod ast;
 
+use crate::parser::ast::{ExpressionStatement, PrintStatement, Statement};
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
 use std::fmt::Write;
@@ -23,16 +24,51 @@ impl<TokenIter> Parser<TokenIter>
 where
     TokenIter: Iterator<Item = Token>,
 {
-    pub fn parse(tokens: TokenIter) -> Option<Expression> {
+    pub fn parse(tokens: TokenIter) -> Result<Vec<Statement>, Vec<Statement>> {
         let mut parser = Self {
             tokens: Source(tokens).peekable(),
             mode: ParsingMode::Normal,
         };
-        let expr = parser.expression();
-        if expr.is_none() {
-            parser.advance_until_recovery_point();
+
+        let mut has_errored = false;
+        let mut statements = vec![];
+        while !parser.is_at_end() {
+            let statement = parser.statement();
+            match statement {
+                Some(statement) => {
+                    statements.push(statement);
+                }
+                None => {
+                    parser.advance_until_recovery_point();
+                    has_errored = true;
+                }
+            }
         }
-        expr
+        if has_errored {
+            Err(statements)
+        } else {
+            Ok(statements)
+        }
+    }
+
+    fn statement(&mut self) -> Option<Statement> {
+        if self.advance_on_match(&[TokenDiscriminant::Print]).is_some() {
+            self.print_statement().map(Statement::Print)
+        } else {
+            self.expression_statement().map(Statement::Expression)
+        }
+    }
+
+    fn print_statement(&mut self) -> Option<PrintStatement> {
+        let expr = self.expression()?;
+        self.expect(TokenDiscriminant::Semicolon)?;
+        Some(PrintStatement(expr))
+    }
+
+    fn expression_statement(&mut self) -> Option<ExpressionStatement> {
+        let expr = self.expression()?;
+        self.expect(TokenDiscriminant::Semicolon)?;
+        Some(ExpressionStatement(expr))
     }
 
     fn expression(&mut self) -> Option<Expression> {
@@ -170,6 +206,10 @@ where
             None
         }
     }
+
+    fn is_at_end(&mut self) -> bool {
+        self.tokens.peek().is_none()
+    }
 }
 
 /// Our parser does not care about trivia tokens.
@@ -197,26 +237,46 @@ where
 }
 
 #[allow(unused)]
-pub fn display_ast(e: &Expression) -> Result<String, std::fmt::Error> {
-    let mut s = String::new();
-    _display_ast(&mut s, e, 0)?;
-    Ok(s)
+pub fn display_ast(s: &Statement) -> Result<String, std::fmt::Error> {
+    let mut buffer = String::new();
+    _display_statement(&mut buffer, s, 0)?;
+    Ok(buffer)
 }
 
-fn _display_ast(w: &mut impl Write, e: &Expression, depth: u8) -> Result<(), std::fmt::Error> {
+fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<(), std::fmt::Error> {
+    // Can we avoid an allocation for the indentation string here?
+    write!(w, "{}", " ".repeat(depth as usize))?;
+    match s {
+        Statement::Expression(ExpressionStatement(e)) => {
+            writeln!(w, "Expression")?;
+            _display_expression(w, &e, depth + 1)?;
+        }
+        Statement::Print(PrintStatement(e)) => {
+            writeln!(w, "Print")?;
+            _display_expression(w, &e, depth + 1)?;
+        }
+    }
+    Ok(())
+}
+
+fn _display_expression(
+    w: &mut impl Write,
+    e: &Expression,
+    depth: u8,
+) -> Result<(), std::fmt::Error> {
     // Can we avoid an allocation for the indentation string here?
     write!(w, "{}", " ".repeat(depth as usize))?;
     match e {
         Expression::Binary(b) => {
             writeln!(w, "Binary")?;
-            _display_ast(w, &b.left, depth + 1)?;
+            _display_expression(w, &b.left, depth + 1)?;
             _display_token(w, &b.operator, depth + 1)?;
-            _display_ast(w, &b.right, depth + 1)?;
+            _display_expression(w, &b.right, depth + 1)?;
         }
         Expression::Unary(u) => {
             writeln!(w, "Unary")?;
             _display_token(w, &u.operator, depth + 1)?;
-            _display_ast(w, &u.operand, depth + 1)?;
+            _display_expression(w, &u.operand, depth + 1)?;
         }
         Expression::Literal(l) => {
             writeln!(w, "Literal")?;
@@ -231,7 +291,7 @@ fn _display_ast(w: &mut impl Write, e: &Expression, depth: u8) -> Result<(), std
         }
         Expression::Grouping(g) => {
             writeln!(w, "Grouping")?;
-            _display_ast(w, &g.0, depth + 1)?;
+            _display_expression(w, &g.0, depth + 1)?;
         }
     }
     Ok(())
@@ -256,52 +316,78 @@ mod tests {
     use insta::assert_display_snapshot;
 
     fn parse(source: &str) -> String {
-        let e = Parser::parse(Scanner::new(source)).unwrap();
-        display_ast(&e).unwrap()
+        if let Ok(statements) = Parser::parse(Scanner::new(source)) {
+            display_ast(&statements[0]).unwrap()
+        } else {
+            panic!("Failed to parse the source code")
+        }
     }
 
     #[test]
     fn parse_string_expression() {
-        let ast = parse(r#""My name is Luça""#);
+        let ast = parse(r#""My name is Luça";"#);
         assert_display_snapshot!(ast, @r###"
-        Literal
-         String "My name is Luça"
+        Expression
+         Literal
+          String "My name is Luça"
         "###)
     }
 
     #[test]
     fn parse_number() {
-        let ast = parse(r#"12.65"#);
+        let ast = parse(r#"12.65;"#);
         assert_display_snapshot!(ast, @r###"
-        Literal
-         Number 12.65
+        Expression
+         Literal
+          Number 12.65
         "###)
     }
 
     #[test]
     fn parse_binary() {
-        let ast = parse(r#"12.65 + 2"#);
+        let ast = parse(r#"12.65 + 2;"#);
         assert_display_snapshot!(ast, @r###"
-        Binary
-         Literal
-          Number 12.65
-         Plus
-         Literal
-          Number 2
+        Expression
+         Binary
+          Literal
+           Number 12.65
+          Plus
+          Literal
+           Number 2
         "###)
     }
 
     #[test]
     fn parse_binary_without_parens() {
-        let ast = parse(r#"12.65 + 2 * 3"#);
+        let ast = parse(r#"12.65 + 2 * 3;"#);
         assert_display_snapshot!(ast, @r###"
-        Binary
-         Literal
-          Number 12.65
-         Plus
+        Expression
          Binary
           Literal
-           Number 2
+           Number 12.65
+          Plus
+          Binary
+           Literal
+            Number 2
+           Star
+           Literal
+            Number 3
+        "###)
+    }
+
+    #[test]
+    fn parse_binary_with_parens() {
+        let ast = parse(r#"(12.65 + 2) * 3;"#);
+        assert_display_snapshot!(ast, @r###"
+        Expression
+         Binary
+          Grouping
+           Binary
+            Literal
+             Number 12.65
+            Plus
+            Literal
+             Number 2
           Star
           Literal
            Number 3
@@ -309,49 +395,32 @@ mod tests {
     }
 
     #[test]
-    fn parse_binary_with_parens() {
-        let ast = parse(r#"(12.65 + 2) * 3"#);
+    fn parse_complex_equality() {
+        let ast = parse(r#"!((12 + 2) * 3) == 50 / 12;"#);
         assert_display_snapshot!(ast, @r###"
-        Binary
-         Grouping
+        Expression
+         Binary
+          Unary
+           Bang
+           Grouping
+            Binary
+             Grouping
+              Binary
+               Literal
+                Number 12
+               Plus
+               Literal
+                Number 2
+             Star
+             Literal
+              Number 3
+          EqualEqual
           Binary
            Literal
-            Number 12.65
-           Plus
+            Number 50
+           Slash
            Literal
-            Number 2
-         Star
-         Literal
-          Number 3
-        "###)
-    }
-
-    #[test]
-    fn parse_complex_equality() {
-        let ast = parse(r#"!((12 + 2) * 3) == 50 / 12"#);
-        assert_display_snapshot!(ast, @r###"
-        Binary
-         Unary
-          Bang
-          Grouping
-           Binary
-            Grouping
-             Binary
-              Literal
-               Number 12
-              Plus
-              Literal
-               Number 2
-            Star
-            Literal
-             Number 3
-         EqualEqual
-         Binary
-          Literal
-           Number 50
-          Slash
-          Literal
-           Number 12
+            Number 12
         "###)
     }
 }

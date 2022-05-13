@@ -1,4 +1,7 @@
-use crate::parser::ast::{BinaryExpression, LiteralExpression, UnaryExpression};
+use crate::parser::ast::{
+    BinaryExpression, ExpressionStatement, LiteralExpression, PrintStatement, Statement,
+    UnaryExpression,
+};
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
 
@@ -8,22 +11,31 @@ use crate::scanner::{Scanner, Token, TokenDiscriminant};
 /// The error type does not contain any information since `run` already takes care, internally,
 /// to report the errors it has encountered (i.e. print error messages to stdout).
 pub fn run(source: String) -> Result<(), ()> {
-    let e = Parser::parse(Scanner::new(&source));
-    if let Some(e) = e {
-        match eval(e) {
-            Ok(v) => {
-                println!("{:?}", v);
-                Ok(())
-            }
-            Err(e) => {
+    if let Ok(statements) = Parser::parse(Scanner::new(&source)) {
+        for statement in statements {
+            if let Err(e) = eval_statement(statement) {
                 println!("Runtime error!\nToken:{:?}\nMessage:{}", e.t, e.msg);
-                Err(())
+                return Err(());
             }
         }
+        Ok(())
     } else {
         println!("Failed to parse the source code");
         Err(())
     }
+}
+
+fn eval_statement(s: Statement) -> Result<(), RuntimeError> {
+    match s {
+        Statement::Expression(ExpressionStatement(e)) => {
+            eval(e)?;
+        }
+        Statement::Print(PrintStatement(e)) => {
+            let value = eval(e)?;
+            println!("{:?}", value);
+        }
+    }
+    Ok(())
 }
 
 fn eval(e: Expression) -> Result<LoxValue, RuntimeError> {
@@ -37,10 +49,9 @@ fn eval(e: Expression) -> Result<LoxValue, RuntimeError> {
             let left = eval(*left)?;
             let right = eval(*right)?;
             match operator.discriminant() {
-                TokenDiscriminant::Minus => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l - r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
+                TokenDiscriminant::Minus => {
+                    num_op(left, right, operator, |l, r| LoxValue::Number(l - r))
+                }
                 TokenDiscriminant::Plus => match (left, right) {
                     (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l + r)),
                     (LoxValue::String(l), LoxValue::String(r)) => Ok(LoxValue::String(l + &r)),
@@ -49,30 +60,24 @@ fn eval(e: Expression) -> Result<LoxValue, RuntimeError> {
                         "`+` operands must either be both numbers or both strings",
                     )),
                 },
-                TokenDiscriminant::Slash => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l / r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
-                TokenDiscriminant::Star => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l * r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
-                TokenDiscriminant::GreaterEqual => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Boolean(l > r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
-                TokenDiscriminant::Greater => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Boolean(l >= r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
-                TokenDiscriminant::Less => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Boolean(l < r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
-                TokenDiscriminant::LessEqual => match (left, right) {
-                    (LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Boolean(l <= r)),
-                    (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
-                },
+                TokenDiscriminant::Slash => {
+                    num_op(left, right, operator, |l, r| LoxValue::Number(l / r))
+                }
+                TokenDiscriminant::Star => {
+                    num_op(left, right, operator, |l, r| LoxValue::Number(l * r))
+                }
+                TokenDiscriminant::GreaterEqual => {
+                    num_op(left, right, operator, |l, r| LoxValue::Boolean(l > r))
+                }
+                TokenDiscriminant::Greater => {
+                    num_op(left, right, operator, |l, r| LoxValue::Boolean(l >= r))
+                }
+                TokenDiscriminant::Less => {
+                    num_op(left, right, operator, |l, r| LoxValue::Boolean(l < r))
+                }
+                TokenDiscriminant::LessEqual => {
+                    num_op(left, right, operator, |l, r| LoxValue::Boolean(l <= r))
+                }
                 TokenDiscriminant::EqualEqual => Ok(LoxValue::Boolean(left.is_equal(&right))),
                 TokenDiscriminant::BangEqual => Ok(LoxValue::Boolean(!left.is_equal(&right))),
                 _ => Err(RuntimeError::new(
@@ -117,6 +122,22 @@ fn eval(e: Expression) -> Result<LoxValue, RuntimeError> {
             }
         },
         Expression::Grouping(g) => eval(*g.0),
+    }
+}
+
+/// Short-hand for evaluating numerical operations.
+fn num_op<F>(
+    left: LoxValue,
+    right: LoxValue,
+    operator: Token,
+    operation: F,
+) -> Result<LoxValue, RuntimeError>
+where
+    F: Fn(f64, f64) -> LoxValue,
+{
+    match (left, right) {
+        (LoxValue::Number(l), LoxValue::Number(r)) => Ok(operation(l, r)),
+        (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
     }
 }
 
