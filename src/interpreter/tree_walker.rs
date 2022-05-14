@@ -1,8 +1,8 @@
 use crate::interpreter::environment::Environment;
 use crate::interpreter::lox_value::LoxValue;
 use crate::parser::ast::{
-    BinaryExpression, ExpressionStatement, LiteralExpression, PrintStatement, Statement,
-    UnaryExpression, VariableDeclarationStatement,
+    BinaryExpression, BlockStatement, ExpressionStatement, LiteralExpression, PrintStatement,
+    Statement, UnaryExpression, VariableDeclarationStatement,
 };
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
@@ -70,6 +70,13 @@ impl Interpreter {
                     LoxValue::Null
                 };
                 self.environment.define(identifier.lexeme(), value);
+            }
+            Statement::Block(BlockStatement(statements)) => {
+                let guard = self.environment.enter_scope();
+                for statement in statements {
+                    self._execute(*statement)?;
+                }
+                self.environment.exit_scope(guard);
             }
         }
         Ok(())

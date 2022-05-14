@@ -1,7 +1,7 @@
 pub mod ast;
 
 use crate::parser::ast::{
-    ExpressionStatement, PrintStatement, Statement, VariableAssignmentExpression,
+    BlockStatement, ExpressionStatement, PrintStatement, Statement, VariableAssignmentExpression,
     VariableDeclarationStatement, VariableReferenceExpression,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
@@ -304,6 +304,12 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             _display_token(w, &identifier, depth + 1)?;
             if let Some(e) = initializer {
                 _display_expression(w, &e, depth + 1)?;
+            }
+        }
+        Statement::Block(BlockStatement(statements)) => {
+            writeln!(w, "Block")?;
+            for statement in statements {
+                _display_statement(w, statement, depth + 1)?;
             }
         }
     }

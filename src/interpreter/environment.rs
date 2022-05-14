@@ -83,4 +83,5 @@ impl Scope {
 /// The interpreter code has no way to defuse the drop bomb (the field is private outside of
 /// this module) - the interpreter is forced to call [`Environment::exit_scope`], which gives us
 /// a chance to change the currently active scope in the environment.
+#[must_use = "Nested scopes must be closed!"]
 pub(in crate::interpreter) struct ScopeGuard(drop_bomb::DropBomb);

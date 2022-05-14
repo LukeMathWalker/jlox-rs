@@ -4,11 +4,14 @@ pub enum Statement {
     Expression(ExpressionStatement),
     Print(PrintStatement),
     VariableDeclaration(VariableDeclarationStatement),
+    Block(BlockStatement),
 }
 
 pub struct ExpressionStatement(pub Expression);
 
 pub struct PrintStatement(pub Expression);
+
+pub struct BlockStatement(pub Vec<Box<Statement>>);
 
 pub struct VariableDeclarationStatement {
     pub initializer: Option<Expression>,
