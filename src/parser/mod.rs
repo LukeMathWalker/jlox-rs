@@ -1,6 +1,9 @@
 pub mod ast;
 
-use crate::parser::ast::{ExpressionStatement, PrintStatement, Statement};
+use crate::parser::ast::{
+    ExpressionStatement, PrintStatement, Statement, VariableDeclarationStatement,
+    VariableExpression,
+};
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
 use std::fmt::Write;
@@ -33,7 +36,7 @@ where
         let mut has_errored = false;
         let mut statements = vec![];
         while !parser.is_at_end() {
-            let statement = parser.statement();
+            let statement = parser.declaration();
             match statement {
                 Some(statement) => {
                     statements.push(statement);
@@ -48,6 +51,25 @@ where
             Err(statements)
         } else {
             Ok(statements)
+        }
+    }
+
+    fn declaration(&mut self) -> Option<Statement> {
+        if self.advance_on_match(&[TokenDiscriminant::Var]).is_some() {
+            let identifier = self.expect(TokenDiscriminant::Identifier)?;
+            let mut initializer = None;
+            if self.advance_on_match(&[TokenDiscriminant::Equal]).is_some() {
+                initializer = Some(self.expression()?);
+            }
+            self.expect(TokenDiscriminant::Semicolon)?;
+            Some(Statement::VariableDeclaration(
+                VariableDeclarationStatement {
+                    initializer,
+                    identifier,
+                },
+            ))
+        } else {
+            self.statement()
         }
     }
 
@@ -142,6 +164,8 @@ where
             Some(Expression::number(t))
         } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::String]) {
             Some(Expression::string(t))
+        } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::Identifier]) {
+            Some(Expression::variable(t))
         } else if self
             .advance_on_match(&[TokenDiscriminant::LeftParen])
             .is_some()
@@ -255,6 +279,16 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             writeln!(w, "Print")?;
             _display_expression(w, &e, depth + 1)?;
         }
+        Statement::VariableDeclaration(VariableDeclarationStatement {
+            initializer,
+            identifier,
+        }) => {
+            writeln!(w, "Variable Declaration")?;
+            _display_token(w, &identifier, depth + 1)?;
+            if let Some(e) = initializer {
+                _display_expression(w, &e, depth + 1)?;
+            }
+        }
     }
     Ok(())
 }
@@ -292,6 +326,10 @@ fn _display_expression(
         Expression::Grouping(g) => {
             writeln!(w, "Grouping")?;
             _display_expression(w, &g.0, depth + 1)?;
+        }
+        Expression::Variable(VariableExpression { identifier }) => {
+            writeln!(w, "Variable Reference")?;
+            _display_token(w, identifier, depth + 1)?;
         }
     }
     Ok(())

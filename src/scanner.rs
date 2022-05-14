@@ -260,6 +260,10 @@ impl Token {
     pub fn discriminant(&self) -> TokenDiscriminant {
         (&self.ty).into()
     }
+
+    pub fn lexeme(self) -> String {
+        self.lexeme
+    }
 }
 
 impl std::fmt::Display for Token {

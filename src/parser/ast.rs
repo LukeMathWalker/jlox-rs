@@ -3,17 +3,24 @@ use crate::scanner::Token;
 pub enum Statement {
     Expression(ExpressionStatement),
     Print(PrintStatement),
+    VariableDeclaration(VariableDeclarationStatement),
 }
 
 pub struct ExpressionStatement(pub Expression);
 
 pub struct PrintStatement(pub Expression);
 
+pub struct VariableDeclarationStatement {
+    pub initializer: Option<Expression>,
+    pub identifier: Token,
+}
+
 pub enum Expression {
     Binary(BinaryExpression),
     Unary(UnaryExpression),
     Literal(LiteralExpression),
     Grouping(GroupingExpression),
+    Variable(VariableExpression),
 }
 
 impl Expression {
@@ -51,6 +58,10 @@ impl Expression {
     pub fn grouping(e: Expression) -> Self {
         Self::Grouping(GroupingExpression(Box::new(e)))
     }
+
+    pub fn variable(t: Token) -> Self {
+        Self::Variable(VariableExpression { identifier: t })
+    }
 }
 
 pub struct BinaryExpression {
@@ -64,6 +75,11 @@ pub struct UnaryExpression {
     pub operand: Box<Expression>,
     // TODO: review if using a Token directly, here, is ideal
     pub operator: Token,
+}
+
+pub struct VariableExpression {
+    // TODO: review if using a Token directly, here, is ideal
+    pub identifier: Token,
 }
 
 pub enum LiteralExpression {

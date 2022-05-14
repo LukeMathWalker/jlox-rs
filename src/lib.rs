@@ -3,5 +3,5 @@ mod parser;
 mod repl;
 mod scanner;
 
-pub use interpreter::run;
+pub use interpreter::Interpreter;
 pub use repl::repl;

@@ -1,9 +1,10 @@
-use crate::interpreter::run;
+use crate::Interpreter;
 use std::io::{stdout, Write};
 
 /// Read-print-evaluation loop.
 /// It prompts the user to enter lox code and then interprets it on the fly.
 pub fn repl() -> Result<(), std::io::Error> {
+    let mut interpreter = Interpreter::new();
     loop {
         print!("> ");
         stdout().flush()?;
@@ -12,6 +13,6 @@ pub fn repl() -> Result<(), std::io::Error> {
             break Ok(());
         }
         let input = input.trim().to_string();
-        let _ = run(input);
+        let _ = interpreter.execute_raw(&input);
     }
 }
