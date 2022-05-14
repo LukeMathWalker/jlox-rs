@@ -1,8 +1,8 @@
 pub mod ast;
 
 use crate::parser::ast::{
-    ExpressionStatement, PrintStatement, Statement, VariableDeclarationStatement,
-    VariableExpression,
+    ExpressionStatement, PrintStatement, Statement, VariableAssignmentExpression,
+    VariableDeclarationStatement, VariableReferenceExpression,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
@@ -94,7 +94,24 @@ where
     }
 
     fn expression(&mut self) -> Option<Expression> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Option<Expression> {
+        let expr = self.equality()?;
+
+        if self.advance_on_match(&[TokenDiscriminant::Equal]).is_some() {
+            let value = self.assignment()?;
+            if let Expression::VariableReference(variable) = expr {
+                let name = variable.identifier;
+                Some(Expression::variable_assignment(name, value))
+            } else {
+                // Invalid assignment target!
+                None
+            }
+        } else {
+            Some(expr)
+        }
     }
 
     fn equality(&mut self) -> Option<Expression> {
@@ -165,7 +182,7 @@ where
         } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::String]) {
             Some(Expression::string(t))
         } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::Identifier]) {
-            Some(Expression::variable(t))
+            Some(Expression::variable_reference(t))
         } else if self
             .advance_on_match(&[TokenDiscriminant::LeftParen])
             .is_some()
@@ -327,9 +344,14 @@ fn _display_expression(
             writeln!(w, "Grouping")?;
             _display_expression(w, &g.0, depth + 1)?;
         }
-        Expression::Variable(VariableExpression { identifier }) => {
+        Expression::VariableReference(VariableReferenceExpression { identifier }) => {
             writeln!(w, "Variable Reference")?;
             _display_token(w, identifier, depth + 1)?;
+        }
+        Expression::VariableAssignment(VariableAssignmentExpression { identifier, value }) => {
+            writeln!(w, "Variable Assignment")?;
+            _display_token(w, identifier, depth + 1)?;
+            _display_expression(w, value, depth + 1)?;
         }
     }
     Ok(())

@@ -69,13 +69,13 @@ impl Interpreter {
                 } else {
                     LoxValue::Null
                 };
-                self.environment.define_binding(identifier.lexeme(), value);
+                self.environment.define(identifier.lexeme(), value);
             }
         }
         Ok(())
     }
 
-    fn eval(&self, e: Expression) -> Result<LoxValue, RuntimeError> {
+    fn eval(&mut self, e: Expression) -> Result<LoxValue, RuntimeError> {
         match e {
             Expression::Binary(b) => {
                 let BinaryExpression {
@@ -159,9 +159,15 @@ impl Interpreter {
                 }
             },
             Expression::Grouping(g) => self.eval(*g.0),
-            Expression::Variable(v) => {
+            Expression::VariableReference(v) => {
                 let name = v.identifier.lexeme();
                 self.environment.get_value(&name)
+            }
+            Expression::VariableAssignment(v) => {
+                let name = v.identifier.lexeme();
+                let value = self.eval(*v.value)?;
+                self.environment.assign(name, value.clone())?;
+                Ok(value)
             }
         }
     }

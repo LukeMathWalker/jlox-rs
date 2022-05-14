@@ -20,7 +20,8 @@ pub enum Expression {
     Unary(UnaryExpression),
     Literal(LiteralExpression),
     Grouping(GroupingExpression),
-    Variable(VariableExpression),
+    VariableReference(VariableReferenceExpression),
+    VariableAssignment(VariableAssignmentExpression),
 }
 
 impl Expression {
@@ -59,8 +60,15 @@ impl Expression {
         Self::Grouping(GroupingExpression(Box::new(e)))
     }
 
-    pub fn variable(t: Token) -> Self {
-        Self::Variable(VariableExpression { identifier: t })
+    pub fn variable_reference(t: Token) -> Self {
+        Self::VariableReference(VariableReferenceExpression { identifier: t })
+    }
+
+    pub fn variable_assignment(identifier: Token, value: Expression) -> Self {
+        Self::VariableAssignment(VariableAssignmentExpression {
+            identifier,
+            value: Box::new(value),
+        })
     }
 }
 
@@ -77,9 +85,15 @@ pub struct UnaryExpression {
     pub operator: Token,
 }
 
-pub struct VariableExpression {
+pub struct VariableReferenceExpression {
     // TODO: review if using a Token directly, here, is ideal
     pub identifier: Token,
+}
+
+pub struct VariableAssignmentExpression {
+    // TODO: review if using a Token directly, here, is ideal
+    pub identifier: Token,
+    pub value: Box<Expression>,
 }
 
 pub enum LiteralExpression {

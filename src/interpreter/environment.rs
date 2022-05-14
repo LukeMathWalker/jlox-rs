@@ -9,8 +9,17 @@ impl Environment {
         Self(HashMap::new())
     }
 
-    pub fn define_binding(&mut self, variable_name: String, value: LoxValue) {
+    pub fn define(&mut self, variable_name: String, value: LoxValue) {
         self.0.insert(variable_name, value);
+    }
+
+    pub fn assign(&mut self, variable_name: String, value: LoxValue) -> Result<(), RuntimeError> {
+        if self.0.contains_key(&variable_name) {
+            self.0.insert(variable_name, value);
+            Ok(())
+        } else {
+            Err(RuntimeError::undefined_variable(&variable_name))
+        }
     }
 
     pub fn get_value(&self, variable_name: &str) -> Result<LoxValue, RuntimeError> {
