@@ -76,9 +76,32 @@ where
     fn statement(&mut self) -> Option<Statement> {
         if self.advance_on_match(&[TokenDiscriminant::Print]).is_some() {
             self.print_statement().map(Statement::Print)
+        } else if self
+            .advance_on_match(&[TokenDiscriminant::LeftBrace])
+            .is_some()
+        {
+            self.block_statement().map(Statement::Block)
         } else {
             self.expression_statement().map(Statement::Expression)
         }
+    }
+
+    fn block_statement(&mut self) -> Option<BlockStatement> {
+        let mut statements = vec![];
+
+        loop {
+            if self.is_at_end() {
+                break;
+            }
+            if let Some(t) = self.peek() {
+                if t.discriminant() == TokenDiscriminant::RightBrace {
+                    break;
+                }
+            }
+            statements.push(Box::new(self.declaration()?));
+        }
+        self.expect(TokenDiscriminant::RightBrace)?;
+        Some(BlockStatement(statements))
     }
 
     fn print_statement(&mut self) -> Option<PrintStatement> {
@@ -243,6 +266,14 @@ where
     fn advance(&mut self) -> Option<Token> {
         if self.mode == ParsingMode::Normal {
             self.tokens.next()
+        } else {
+            None
+        }
+    }
+
+    fn peek(&mut self) -> Option<&Token> {
+        if self.mode == ParsingMode::Normal {
+            self.tokens.peek()
         } else {
             None
         }
