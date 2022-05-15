@@ -6,15 +6,21 @@ use crate::parser::ast::{
 };
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
+use std::io::Write;
 
 pub struct Interpreter {
     environment: Environment,
+    output_stream: Box<dyn Write + 'static>,
 }
 
 impl Interpreter {
-    pub fn new() -> Self {
+    pub fn new<OutputStream>(output: OutputStream) -> Self
+    where
+        OutputStream: Write + 'static,
+    {
         Self {
             environment: Environment::new(),
+            output_stream: Box::new(output),
         }
     }
 
@@ -58,7 +64,7 @@ impl Interpreter {
             }
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
-                println!("{:?}", value);
+                write!(self.output_stream, "{:?}", value).map_err(RuntimeError::failed_to_print)?;
             }
             Statement::VariableDeclaration(VariableDeclarationStatement {
                 initializer,
@@ -218,6 +224,13 @@ impl RuntimeError {
         Self {
             t: None,
             msg: format!("Undefined variable named {}", variable_name),
+        }
+    }
+
+    pub fn failed_to_print(e: std::io::Error) -> Self {
+        Self {
+            t: None,
+            msg: format!("Failed to execute a print statement.\n{}", e),
         }
     }
 }
