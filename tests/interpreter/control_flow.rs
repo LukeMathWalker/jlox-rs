@@ -52,3 +52,15 @@ while (i < 2) {
     1
     "###);
 }
+
+#[test]
+fn for_works() {
+    let source = r#"for (var i = 0; i < 2; i = i + 1) {
+    print i;
+}"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @r###"
+    0
+    1
+    "###);
+}

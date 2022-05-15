@@ -128,7 +128,6 @@ where
         }
 
         body = Statement::While(WhileStatement {
-            // What token do we use here?
             condition: condition.unwrap_or_else(|| Expression::boolean(true)),
             body: Box::new(body),
         });

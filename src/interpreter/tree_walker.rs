@@ -82,10 +82,17 @@ impl<'a> Interpreter<'a> {
             }
             Statement::Block(BlockStatement(statements)) => {
                 let guard = self.environment.enter_scope();
+                let mut error = None;
                 for statement in statements {
-                    self._execute(*statement)?;
+                    if let Err(e) = self._execute(*statement) {
+                        error = Some(e);
+                        break;
+                    }
                 }
                 self.environment.exit_scope(guard);
+                if let Some(e) = error {
+                    return Err(e);
+                }
             }
             Statement::IfElse(IfElseStatement {
                 condition,
