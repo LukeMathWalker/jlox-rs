@@ -65,6 +65,9 @@ impl Interpreter {
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
                 write!(self.output_stream, "{:?}", value).map_err(RuntimeError::failed_to_print)?;
+                self.output_stream
+                    .flush()
+                    .map_err(RuntimeError::failed_to_flush)?;
             }
             Statement::VariableDeclaration(VariableDeclarationStatement {
                 initializer,
@@ -231,6 +234,13 @@ impl RuntimeError {
         Self {
             t: None,
             msg: format!("Failed to execute a print statement.\n{}", e),
+        }
+    }
+
+    pub fn failed_to_flush(e: std::io::Error) -> Self {
+        Self {
+            t: None,
+            msg: format!("Failed to flush the output stream.\n{}", e),
         }
     }
 }
