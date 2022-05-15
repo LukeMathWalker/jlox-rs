@@ -111,6 +111,22 @@ impl<'a> Interpreter<'a> {
                     right,
                 } = b;
                 let left = self.eval(*left)?;
+
+                // We handle short-circuiting operators first
+                if let TokenDiscriminant::Or = operator.discriminant() {
+                    return if left.is_truthy() {
+                        Ok(left)
+                    } else {
+                        Ok(self.eval(*right)?)
+                    };
+                } else if let TokenDiscriminant::And = operator.discriminant() {
+                    return if !left.is_truthy() {
+                        Ok(left)
+                    } else {
+                        Ok(self.eval(*right)?)
+                    };
+                }
+
                 let right = self.eval(*right)?;
                 match operator.discriminant() {
                     TokenDiscriminant::Minus => {

@@ -139,7 +139,7 @@ where
     }
 
     fn assignment(&mut self) -> Option<Expression> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if self.advance_on_match(&[TokenDiscriminant::Equal]).is_some() {
             let value = self.assignment()?;
@@ -153,6 +153,24 @@ where
         } else {
             Some(expr)
         }
+    }
+
+    fn or(&mut self) -> Option<Expression> {
+        let mut expr = self.and()?;
+
+        while let Some(operator) = self.advance_on_match(&[TokenDiscriminant::Or]) {
+            expr = Expression::binary(expr, operator, self.and()?);
+        }
+        Some(expr)
+    }
+
+    fn and(&mut self) -> Option<Expression> {
+        let mut expr = self.equality()?;
+
+        while let Some(operator) = self.advance_on_match(&[TokenDiscriminant::And]) {
+            expr = Expression::binary(expr, operator, self.equality()?);
+        }
+        Some(expr)
     }
 
     fn equality(&mut self) -> Option<Expression> {
@@ -562,6 +580,28 @@ mod tests {
           Plus
           Literal
            Number 5
+        "###)
+    }
+
+    #[test]
+    fn parse_logical_statement() {
+        let ast = parse(r#"true and 2+5 or true;"#);
+        assert_display_snapshot!(ast, @r###"
+        Expression
+         Binary
+          Binary
+           Literal
+            True
+           And
+           Binary
+            Literal
+             Number 2
+            Plus
+            Literal
+             Number 5
+          Or
+          Literal
+           True
         "###)
     }
 }
