@@ -24,14 +24,14 @@ print b;
 print c;"#;
     let output = execute(source);
     assert_display_snapshot!(output, @r###"
-    String("inner a")
-    String("outer b")
-    String("global c")
-    String("outer a")
-    String("outer b")
-    String("global c")
-    String("global a")
-    String("global b")
-    String("global c")
+    inner a
+    outer b
+    global c
+    outer a
+    outer b
+    global c
+    global a
+    global b
+    global c
     "###);
 }

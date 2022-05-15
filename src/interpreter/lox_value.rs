@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug, Clone)]
 pub(in crate::interpreter) enum LoxValue {
     Boolean(bool),
@@ -24,6 +26,17 @@ impl LoxValue {
             (Self::Boolean(s), Self::Boolean(r)) => s == r,
             (Self::Number(s), Self::Number(r)) => s == r,
             (_, _) => false,
+        }
+    }
+}
+
+impl Display for LoxValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoxValue::Boolean(b) => b.fmt(f),
+            LoxValue::Null => write!(f, "`nil`"),
+            LoxValue::String(s) => s.fmt(f),
+            LoxValue::Number(n) => n.fmt(f),
         }
     }
 }

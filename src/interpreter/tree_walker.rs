@@ -64,8 +64,7 @@ impl<'a> Interpreter<'a> {
             }
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
-                writeln!(self.output_stream, "{:?}", value)
-                    .map_err(RuntimeError::failed_to_print)?;
+                writeln!(self.output_stream, "{value}").map_err(RuntimeError::failed_to_print)?;
                 self.output_stream
                     .flush()
                     .map_err(RuntimeError::failed_to_flush)?;
