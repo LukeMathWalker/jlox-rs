@@ -38,3 +38,17 @@ fn ambiguous_if_else_is_execute_correctly() {
     assert_display_snapshot!(output, @r###"
     "###);
 }
+
+#[test]
+fn while_works() {
+    let source = r#"var i = 0;
+while (i < 2) {
+    print i;
+    i = i + 1;    
+}"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @r###"
+    0
+    1
+    "###);
+}

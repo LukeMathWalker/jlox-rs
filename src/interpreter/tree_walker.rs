@@ -2,7 +2,7 @@ use crate::interpreter::environment::Environment;
 use crate::interpreter::lox_value::LoxValue;
 use crate::parser::ast::{
     BinaryExpression, BlockStatement, ExpressionStatement, IfElseStatement, LiteralExpression,
-    PrintStatement, Statement, UnaryExpression, VariableDeclarationStatement,
+    PrintStatement, Statement, UnaryExpression, VariableDeclarationStatement, WhileStatement,
 };
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
@@ -96,6 +96,11 @@ impl<'a> Interpreter<'a> {
                     self._execute(*if_branch)?;
                 } else if let Some(else_branch) = else_branch {
                     self._execute(*else_branch)?;
+                }
+            }
+            Statement::While(WhileStatement { condition, body }) => {
+                while self.eval(condition.clone())?.is_truthy() {
+                    self._execute(*body.clone())?;
                 }
             }
         }

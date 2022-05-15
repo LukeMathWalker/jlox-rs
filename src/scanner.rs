@@ -245,7 +245,7 @@ impl<'a> Scanner<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     ty: TokenType,
     lexeme: String,

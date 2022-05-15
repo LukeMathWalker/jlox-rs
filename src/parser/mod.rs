@@ -3,6 +3,7 @@ pub mod ast;
 use crate::parser::ast::{
     BlockStatement, ExpressionStatement, IfElseStatement, PrintStatement, Statement,
     VariableAssignmentExpression, VariableDeclarationStatement, VariableReferenceExpression,
+    WhileStatement,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
@@ -76,6 +77,8 @@ where
     fn statement(&mut self) -> Option<Statement> {
         if self.advance_on_match(&[TokenDiscriminant::Print]).is_some() {
             self.print_statement().map(Statement::Print)
+        } else if self.advance_on_match(&[TokenDiscriminant::While]).is_some() {
+            self.while_statement().map(Statement::While)
         } else if self.advance_on_match(&[TokenDiscriminant::If]).is_some() {
             self.if_else_statement().map(Statement::IfElse)
         } else if self
@@ -104,6 +107,17 @@ where
         }
         self.expect(TokenDiscriminant::RightBrace)?;
         Some(BlockStatement(statements))
+    }
+
+    fn while_statement(&mut self) -> Option<WhileStatement> {
+        self.expect(TokenDiscriminant::LeftParen)?;
+        let condition = self.expression()?;
+        self.expect(TokenDiscriminant::RightParen)?;
+        let body = self.statement()?;
+        Some(WhileStatement {
+            condition,
+            body: Box::new(body),
+        })
     }
 
     fn if_else_statement(&mut self) -> Option<IfElseStatement> {
@@ -390,6 +404,11 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             if let Some(else_branch) = else_branch {
                 _display_statement(w, else_branch, depth + 1)?;
             }
+        }
+        Statement::While(WhileStatement { condition, body }) => {
+            writeln!(w, "While")?;
+            _display_expression(w, condition, depth + 1)?;
+            _display_statement(w, body, depth + 1)?;
         }
     }
     Ok(())
