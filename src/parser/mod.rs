@@ -1,8 +1,8 @@
 pub mod ast;
 
 use crate::parser::ast::{
-    BlockStatement, ExpressionStatement, PrintStatement, Statement, VariableAssignmentExpression,
-    VariableDeclarationStatement, VariableReferenceExpression,
+    BlockStatement, ExpressionStatement, IfElseStatement, PrintStatement, Statement,
+    VariableAssignmentExpression, VariableDeclarationStatement, VariableReferenceExpression,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
@@ -76,6 +76,8 @@ where
     fn statement(&mut self) -> Option<Statement> {
         if self.advance_on_match(&[TokenDiscriminant::Print]).is_some() {
             self.print_statement().map(Statement::Print)
+        } else if self.advance_on_match(&[TokenDiscriminant::If]).is_some() {
+            self.if_else_statement().map(Statement::IfElse)
         } else if self
             .advance_on_match(&[TokenDiscriminant::LeftBrace])
             .is_some()
@@ -102,6 +104,22 @@ where
         }
         self.expect(TokenDiscriminant::RightBrace)?;
         Some(BlockStatement(statements))
+    }
+
+    fn if_else_statement(&mut self) -> Option<IfElseStatement> {
+        self.expect(TokenDiscriminant::LeftParen)?;
+        let condition = self.expression()?;
+        self.expect(TokenDiscriminant::RightParen)?;
+        let if_branch = self.statement()?;
+        let mut else_branch = None;
+        if self.advance_on_match(&[TokenDiscriminant::Else]).is_some() {
+            else_branch = Some(Box::new(self.statement()?));
+        }
+        Some(IfElseStatement {
+            condition,
+            if_branch: Box::new(if_branch),
+            else_branch,
+        })
     }
 
     fn print_statement(&mut self) -> Option<PrintStatement> {
@@ -341,6 +359,18 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             writeln!(w, "Block")?;
             for statement in statements {
                 _display_statement(w, statement, depth + 1)?;
+            }
+        }
+        Statement::IfElse(IfElseStatement {
+            condition,
+            if_branch,
+            else_branch,
+        }) => {
+            writeln!(w, "IfElse")?;
+            _display_expression(w, condition, depth + 1)?;
+            _display_statement(w, if_branch, depth + 1)?;
+            if let Some(else_branch) = else_branch {
+                _display_statement(w, else_branch, depth + 1)?;
             }
         }
     }

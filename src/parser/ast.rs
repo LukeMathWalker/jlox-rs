@@ -5,6 +5,7 @@ pub enum Statement {
     Print(PrintStatement),
     VariableDeclaration(VariableDeclarationStatement),
     Block(BlockStatement),
+    IfElse(IfElseStatement),
 }
 
 pub struct ExpressionStatement(pub Expression);
@@ -16,6 +17,12 @@ pub struct BlockStatement(pub Vec<Box<Statement>>);
 pub struct VariableDeclarationStatement {
     pub initializer: Option<Expression>,
     pub identifier: Token,
+}
+
+pub struct IfElseStatement {
+    pub condition: Expression,
+    pub if_branch: Box<Statement>,
+    pub else_branch: Option<Box<Statement>>,
 }
 
 pub enum Expression {
