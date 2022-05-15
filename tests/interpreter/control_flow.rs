@@ -24,3 +24,17 @@ fn single_branch_conditional_works() {
     true
     "###);
 }
+
+#[test]
+fn ambiguous_if_else_is_execute_correctly() {
+    // The else binds to the closest if, `if (true)`, therefore
+    // it's not executed.
+    let source = r#"if (false)
+    if (true)
+        print "if";
+    else
+        print "else";"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @r###"
+    "###);
+}
