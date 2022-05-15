@@ -8,15 +8,15 @@ use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
 use std::io::Write;
 
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     environment: Environment,
-    output_stream: Box<dyn Write + 'static>,
+    output_stream: Box<dyn Write + 'a>,
 }
 
-impl Interpreter {
+impl<'a> Interpreter<'a> {
     pub fn new<OutputStream>(output: OutputStream) -> Self
     where
-        OutputStream: Write + 'static,
+        OutputStream: Write + 'a,
     {
         Self {
             environment: Environment::new(),
@@ -64,7 +64,8 @@ impl Interpreter {
             }
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
-                write!(self.output_stream, "{:?}", value).map_err(RuntimeError::failed_to_print)?;
+                writeln!(self.output_stream, "{:?}", value)
+                    .map_err(RuntimeError::failed_to_print)?;
                 self.output_stream
                     .flush()
                     .map_err(RuntimeError::failed_to_flush)?;
@@ -206,7 +207,7 @@ where
 }
 
 #[derive(Debug)]
-pub(in crate::interpreter) struct RuntimeError {
+pub struct RuntimeError {
     t: Option<Token>,
     msg: String,
 }
