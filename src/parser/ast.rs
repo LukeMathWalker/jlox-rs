@@ -64,8 +64,8 @@ impl Expression {
         })
     }
 
-    pub fn boolean(t: Token) -> Self {
-        Self::Literal(LiteralExpression::Boolean(t))
+    pub fn boolean(b: bool) -> Self {
+        Self::Literal(LiteralExpression::Boolean(b))
     }
 
     pub fn string(t: Token) -> Self {
@@ -126,7 +126,7 @@ pub struct VariableAssignmentExpression {
 
 #[derive(Clone)]
 pub enum LiteralExpression {
-    Boolean(Token),
+    Boolean(bool),
     Null(Token),
     String(Token),
     Number(Token),

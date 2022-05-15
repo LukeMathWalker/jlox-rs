@@ -79,6 +79,8 @@ where
             self.print_statement().map(Statement::Print)
         } else if self.advance_on_match(&[TokenDiscriminant::While]).is_some() {
             self.while_statement().map(Statement::While)
+        } else if self.advance_on_match(&[TokenDiscriminant::For]).is_some() {
+            self.for_statement()
         } else if self.advance_on_match(&[TokenDiscriminant::If]).is_some() {
             self.if_else_statement().map(Statement::IfElse)
         } else if self
@@ -89,6 +91,53 @@ where
         } else {
             self.expression_statement().map(Statement::Expression)
         }
+    }
+
+    fn for_statement(&mut self) -> Option<Statement> {
+        self.expect(TokenDiscriminant::LeftParen)?;
+        let initializer = if self
+            .advance_on_match(&[TokenDiscriminant::Semicolon])
+            .is_some()
+        {
+            None
+        } else if self.advance_on_match(&[TokenDiscriminant::Var]).is_some() {
+            Some(self.declaration()?)
+        } else {
+            Some(Statement::Expression(self.expression_statement()?))
+        };
+        let condition = if self.peek()?.discriminant() == TokenDiscriminant::Semicolon {
+            None
+        } else {
+            Some(self.expression()?)
+        };
+        self.expect(TokenDiscriminant::Semicolon)?;
+        let increment = if self.peek()?.discriminant() == TokenDiscriminant::RightParen {
+            None
+        } else {
+            Some(self.expression()?)
+        };
+        self.expect(TokenDiscriminant::RightParen)?;
+        let mut body = self.statement()?;
+
+        // De-sugaring the for loop into an equivalent while loop
+        if let Some(increment) = increment {
+            body = Statement::Block(BlockStatement(vec![
+                Box::new(body),
+                Box::new(Statement::Expression(ExpressionStatement(increment))),
+            ]))
+        }
+
+        body = Statement::While(WhileStatement {
+            // What token do we use here?
+            condition: condition.unwrap_or_else(|| Expression::boolean(true)),
+            body: Box::new(body),
+        });
+
+        if let Some(initializer) = initializer {
+            body = Statement::Block(BlockStatement(vec![Box::new(initializer), Box::new(body)]))
+        }
+
+        Some(body)
     }
 
     fn block_statement(&mut self) -> Option<BlockStatement> {
@@ -245,9 +294,10 @@ where
     }
 
     fn primary(&mut self) -> Option<Expression> {
-        if let Some(t) = self.advance_on_match(&[TokenDiscriminant::True, TokenDiscriminant::False])
-        {
-            Some(Expression::boolean(t))
+        if self.advance_on_match(&[TokenDiscriminant::True]).is_some() {
+            Some(Expression::boolean(true))
+        } else if self.advance_on_match(&[TokenDiscriminant::False]).is_some() {
+            Some(Expression::boolean(false))
         } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::Nil]) {
             Some(Expression::null(t))
         } else if let Some(t) = self.advance_on_match(&[TokenDiscriminant::Number]) {
@@ -436,11 +486,14 @@ fn _display_expression(
         Expression::Literal(l) => {
             writeln!(w, "Literal")?;
             match l {
-                LiteralExpression::Boolean(t)
-                | LiteralExpression::Null(t)
+                LiteralExpression::Null(t)
                 | LiteralExpression::String(t)
                 | LiteralExpression::Number(t) => {
                     _display_token(w, t, depth + 1)?;
+                }
+                LiteralExpression::Boolean(b) => {
+                    let s = if *b { "True" } else { "False" };
+                    _display_string(w, s, depth + 1)?;
                 }
             }
         }
@@ -470,6 +523,13 @@ fn _display_token(w: &mut impl Write, t: &Token, depth: u8) -> std::fmt::Result 
         TokenType::Number(n) => writeln!(w, " {}", n)?,
         _ => writeln!(w, "")?,
     }
+    Ok(())
+}
+
+fn _display_string(w: &mut impl Write, s: &str, depth: u8) -> std::fmt::Result {
+    // Can we avoid an allocation for the indentation string here?
+    write!(w, "{}", " ".repeat(depth as usize))?;
+    writeln!(w, "{}", s)?;
     Ok(())
 }
 

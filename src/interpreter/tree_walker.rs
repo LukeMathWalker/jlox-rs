@@ -187,13 +187,7 @@ impl<'a> Interpreter<'a> {
                 }
             }
             Expression::Literal(l) => match l {
-                LiteralExpression::Boolean(t) => {
-                    if t.discriminant() == TokenDiscriminant::True {
-                        Ok(LoxValue::Boolean(true))
-                    } else {
-                        Ok(LoxValue::Boolean(false))
-                    }
-                }
+                LiteralExpression::Boolean(b) => Ok(LoxValue::Boolean(b)),
                 LiteralExpression::Null(_) => Ok(LoxValue::Null),
                 LiteralExpression::String(s) => {
                     // Avoidable .to_owned()
