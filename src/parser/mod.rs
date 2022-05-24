@@ -100,7 +100,11 @@ where
             .is_some()
         {
             None
-        } else if self.advance_on_match(&[TokenDiscriminant::Var]).is_some() {
+        } else if self
+            .peek()
+            .map(|t| t.discriminant() == TokenDiscriminant::Var)
+            .unwrap_or(false)
+        {
             Some(self.declaration()?)
         } else {
             Some(Statement::Expression(self.expression_statement()?))

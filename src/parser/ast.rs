@@ -1,6 +1,6 @@
 use crate::scanner::Token;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Expression(ExpressionStatement),
     Print(PrintStatement),
@@ -10,35 +10,35 @@ pub enum Statement {
     While(WhileStatement),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ExpressionStatement(pub Expression);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PrintStatement(pub Expression);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BlockStatement(pub Vec<Box<Statement>>);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct VariableDeclarationStatement {
     pub initializer: Option<Expression>,
     pub identifier: Token,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct IfElseStatement {
     pub condition: Expression,
     pub if_branch: Box<Statement>,
     pub else_branch: Option<Box<Statement>>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WhileStatement {
     pub condition: Expression,
     pub body: Box<Statement>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Binary(BinaryExpression),
     Unary(UnaryExpression),
@@ -96,7 +96,7 @@ impl Expression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpression {
     pub left: Box<Expression>,
     // TODO: review if using a Token directly, here, is ideal
@@ -104,27 +104,27 @@ pub struct BinaryExpression {
     pub right: Box<Expression>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpression {
     pub operand: Box<Expression>,
     // TODO: review if using a Token directly, here, is ideal
     pub operator: Token,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct VariableReferenceExpression {
     // TODO: review if using a Token directly, here, is ideal
     pub identifier: Token,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct VariableAssignmentExpression {
     // TODO: review if using a Token directly, here, is ideal
     pub identifier: Token,
     pub value: Box<Expression>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum LiteralExpression {
     Boolean(bool),
     Null(Token),
@@ -132,5 +132,5 @@ pub enum LiteralExpression {
     Number(Token),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GroupingExpression(pub Box<Expression>);
