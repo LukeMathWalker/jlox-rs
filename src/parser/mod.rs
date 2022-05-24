@@ -292,8 +292,43 @@ where
         {
             Some(Expression::unary(operator, self.unary()?))
         } else {
-            self.primary()
+            self.call()
         }
+    }
+
+    fn call(&mut self) -> Option<Expression> {
+        let mut callee = self.primary()?;
+
+        loop {
+            if self
+                .advance_on_match(&[TokenDiscriminant::LeftParen])
+                .is_some()
+            {
+                callee = self.finish_call(callee)?;
+            } else {
+                break;
+            }
+        }
+        Some(callee)
+    }
+
+    fn finish_call(&mut self, callee: Expression) -> Option<Expression> {
+        let mut arguments = vec![];
+        if self.peek()?.discriminant() != TokenDiscriminant::RightParen {
+            loop {
+                arguments.push(self.expression()?);
+                if self.peek()?.discriminant() != TokenDiscriminant::Comma {
+                    break;
+                }
+            }
+        }
+        let closing_parenthesis = self.expect(TokenDiscriminant::RightParen)?;
+        if arguments.len() >= 255 {
+            // Ugly, we should set `has_errored` here.
+            println!("You can't have more than 255 arguments");
+            return None;
+        }
+        Some(Expression::call(callee, closing_parenthesis, arguments))
     }
 
     fn primary(&mut self) -> Option<Expression> {
