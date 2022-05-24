@@ -1,9 +1,9 @@
 pub mod ast;
 
 use crate::parser::ast::{
-    BlockStatement, ExpressionStatement, IfElseStatement, PrintStatement, Statement,
-    VariableAssignmentExpression, VariableDeclarationStatement, VariableReferenceExpression,
-    WhileStatement,
+    BlockStatement, CallExpression, ExpressionStatement, IfElseStatement, PrintStatement,
+    Statement, VariableAssignmentExpression, VariableDeclarationStatement,
+    VariableReferenceExpression, WhileStatement,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
@@ -512,6 +512,16 @@ fn _display_expression(
             writeln!(w, "Variable Assignment")?;
             _display_token(w, identifier, depth + 1)?;
             _display_expression(w, value, depth + 1)?;
+        }
+        Expression::Call(CallExpression {
+            callee, arguments, ..
+        }) => {
+            writeln!(w, "Call")?;
+            _display_expression(w, callee, depth + 1)?;
+            _display_string(w, "Arguments", depth + 1)?;
+            for argument in arguments {
+                _display_expression(w, argument, depth + 2)?;
+            }
         }
     }
     Ok(())

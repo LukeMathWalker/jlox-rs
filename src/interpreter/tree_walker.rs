@@ -1,4 +1,5 @@
 use crate::interpreter::environment::Environment;
+use crate::interpreter::lox_callable::LoxCallable;
 use crate::interpreter::lox_value::LoxValue;
 use crate::parser::ast::{
     BinaryExpression, BlockStatement, ExpressionStatement, IfElseStatement, LiteralExpression,
@@ -217,6 +218,15 @@ impl<'a> Interpreter<'a> {
                 let value = self.eval(*v.value)?;
                 self.environment.assign(name, value.clone())?;
                 Ok(value)
+            }
+            Expression::Call(c) => {
+                let callee = self.eval(*c.callee)?;
+                let arguments = c
+                    .arguments
+                    .into_iter()
+                    .map(|a| self.eval(*a))
+                    .collect::<Result<Vec<_>, _>>()?;
+                callee.call(self, arguments)
             }
         }
     }

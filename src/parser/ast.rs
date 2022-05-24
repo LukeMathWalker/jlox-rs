@@ -46,6 +46,7 @@ pub enum Expression {
     Grouping(GroupingExpression),
     VariableReference(VariableReferenceExpression),
     VariableAssignment(VariableAssignmentExpression),
+    Call(CallExpression),
 }
 
 impl Expression {
@@ -94,6 +95,18 @@ impl Expression {
             value: Box::new(value),
         })
     }
+
+    pub fn call(
+        callee: Expression,
+        closing_parenthesis: Token,
+        arguments: Vec<Expression>,
+    ) -> Self {
+        Self::Call(CallExpression {
+            callee: Box::new(callee),
+            closing_parenthesis,
+            arguments: arguments.into_iter().map(Box::new).collect(),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -134,3 +147,10 @@ pub enum LiteralExpression {
 
 #[derive(Debug, Clone)]
 pub struct GroupingExpression(pub Box<Expression>);
+
+#[derive(Debug, Clone)]
+pub struct CallExpression {
+    pub callee: Box<Expression>,
+    pub closing_parenthesis: Token,
+    pub arguments: Vec<Box<Expression>>,
+}
