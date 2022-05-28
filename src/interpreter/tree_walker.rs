@@ -1,6 +1,6 @@
 use crate::interpreter::environment::Environment;
 use crate::interpreter::lox_callable::LoxCallable;
-use crate::interpreter::lox_value::LoxValue;
+use crate::interpreter::lox_value::{Function, LoxValue};
 use crate::parser::ast::{
     BinaryExpression, BlockStatement, ExpressionStatement, IfElseStatement, LiteralExpression,
     PrintStatement, Statement, UnaryExpression, VariableDeclarationStatement, WhileStatement,
@@ -8,10 +8,12 @@ use crate::parser::ast::{
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
 use std::io::Write;
+use std::rc::Rc;
+use std::sync::Mutex;
 
 pub struct Interpreter<'a> {
-    environment: Environment,
-    output_stream: Box<dyn Write + 'a>,
+    pub(in crate::interpreter) environment: Environment,
+    output_stream: Rc<Mutex<dyn Write + 'a>>,
 }
 
 impl<'a> Interpreter<'a> {
@@ -21,7 +23,18 @@ impl<'a> Interpreter<'a> {
     {
         Self {
             environment: Environment::new(),
-            output_stream: Box::new(output),
+            output_stream: Rc::new(Mutex::new(output)),
+        }
+    }
+
+    /// Create a new interpreter instance that inherits the global scope and shares the same
+    /// output stream.
+    ///
+    /// This is used in the implementation of function calls.
+    pub(in crate::interpreter) fn fork(&self) -> Self {
+        Self {
+            environment: Environment::new_nested(self.environment.globals().clone()),
+            output_stream: Rc::clone(&self.output_stream),
         }
     }
 
@@ -58,17 +71,16 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn _execute(&mut self, s: Statement) -> Result<(), RuntimeError> {
+    pub(in crate::interpreter) fn _execute(&mut self, s: Statement) -> Result<(), RuntimeError> {
         match s {
             Statement::Expression(ExpressionStatement(e)) => {
                 self.eval(e)?;
             }
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
-                writeln!(self.output_stream, "{value}").map_err(RuntimeError::failed_to_print)?;
-                self.output_stream
-                    .flush()
-                    .map_err(RuntimeError::failed_to_flush)?;
+                let mut stream = self.output_stream.lock().unwrap();
+                writeln!(stream, "{value}").map_err(RuntimeError::failed_to_print)?;
+                stream.flush().map_err(RuntimeError::failed_to_flush)?;
             }
             Statement::VariableDeclaration(VariableDeclarationStatement {
                 initializer,
@@ -110,6 +122,13 @@ impl<'a> Interpreter<'a> {
                 while self.eval(condition.clone())?.is_truthy() {
                     self._execute(*body.clone())?;
                 }
+            }
+            Statement::FunctionDeclaration(statement) => {
+                let function = Function(statement);
+                self.environment.assign(
+                    function.0.name.clone().lexeme(),
+                    LoxValue::Function(function),
+                )?;
             }
         }
         Ok(())
@@ -226,12 +245,22 @@ impl<'a> Interpreter<'a> {
                     .into_iter()
                     .map(|a| self.eval(*a))
                     .collect::<Result<Vec<_>, _>>()?;
-                // This is fine since the parser will reject functions with more than 255 arguments
-                let n_arguments = arguments.len() as u8;
-                if callee.arity() != n_arguments {
-                    return Err(RuntimeError::arity_mismatch(callee.arity(), n_arguments));
+                match callee {
+                    LoxValue::Function(callee) => {
+                        // This is fine since the parser will reject functions with more than 255 arguments
+                        let n_arguments = arguments.len() as u8;
+                        if callee.arity() != n_arguments {
+                            return Err(RuntimeError::arity_mismatch(callee.arity(), n_arguments));
+                        }
+                        callee.call(self, arguments)
+                    }
+                    LoxValue::Boolean(_)
+                    | LoxValue::Null
+                    | LoxValue::String(_)
+                    | LoxValue::Number(_) => {
+                        return Err(RuntimeError::not_callable(&callee));
+                    }
                 }
-                callee.call(self, arguments)
             }
         }
     }
@@ -296,6 +325,13 @@ impl RuntimeError {
         Self {
             t: None,
             msg: format!("Expect {expected} arguments, but got {found} arguments."),
+        }
+    }
+
+    fn not_callable(v: &LoxValue) -> Self {
+        Self {
+            t: None,
+            msg: format!("`{v}` is not callable."),
         }
     }
 }

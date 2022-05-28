@@ -1,9 +1,9 @@
 pub mod ast;
 
 use crate::parser::ast::{
-    BlockStatement, CallExpression, ExpressionStatement, IfElseStatement, PrintStatement,
-    Statement, VariableAssignmentExpression, VariableDeclarationStatement,
-    VariableReferenceExpression, WhileStatement,
+    BlockStatement, CallExpression, ExpressionStatement, FunctionDeclarationStatement,
+    IfElseStatement, PrintStatement, Statement, VariableAssignmentExpression,
+    VariableDeclarationStatement, VariableReferenceExpression, WhileStatement,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
 use ast::{Expression, LiteralExpression};
@@ -56,7 +56,9 @@ where
     }
 
     fn declaration(&mut self) -> Option<Statement> {
-        if self.advance_on_match(&[TokenDiscriminant::Var]).is_some() {
+        if self.advance_on_match(&[TokenDiscriminant::Fun]).is_some() {
+            self.function().map(Statement::FunctionDeclaration)
+        } else if self.advance_on_match(&[TokenDiscriminant::Var]).is_some() {
             let identifier = self.expect(TokenDiscriminant::Identifier)?;
             let mut initializer = None;
             if self.advance_on_match(&[TokenDiscriminant::Equal]).is_some() {
@@ -72,6 +74,38 @@ where
         } else {
             self.statement()
         }
+    }
+
+    fn function(&mut self) -> Option<FunctionDeclarationStatement> {
+        let name = self.expect(TokenDiscriminant::Identifier)?;
+        self.expect(TokenDiscriminant::LeftParen)?;
+
+        // Function parameters
+        let mut parameters = vec![];
+        if self.peek()?.discriminant() != TokenDiscriminant::RightParen {
+            loop {
+                parameters.push(self.expect(TokenDiscriminant::Identifier)?);
+                if self.peek()?.discriminant() != TokenDiscriminant::Comma {
+                    break;
+                }
+            }
+        }
+        self.expect(TokenDiscriminant::RightParen)?;
+        if parameters.len() >= 255 {
+            // Ugly, we should set `has_errored` here.
+            println!("You can't have more than 255 arguments");
+            return None;
+        }
+
+        // Body
+        self.expect(TokenDiscriminant::LeftBrace)?;
+        let body = self.block_statement()?;
+
+        Some(FunctionDeclarationStatement {
+            name,
+            parameters,
+            body: body.0,
+        })
     }
 
     fn statement(&mut self) -> Option<Statement> {
@@ -497,6 +531,22 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             writeln!(w, "While")?;
             _display_expression(w, condition, depth + 1)?;
             _display_statement(w, body, depth + 1)?;
+        }
+        Statement::FunctionDeclaration(FunctionDeclarationStatement {
+            name,
+            parameters,
+            body,
+        }) => {
+            writeln!(w, "Function Declaration")?;
+            _display_token(w, &name, depth + 1)?;
+            _display_string(w, "Parameters", depth + 1)?;
+            for parameter in parameters {
+                _display_token(w, &parameter, depth + 2)?;
+            }
+            _display_string(w, "Body", depth + 1)?;
+            for s in body {
+                _display_statement(w, s, depth + 2)?;
+            }
         }
     }
     Ok(())

@@ -1,3 +1,4 @@
+use crate::parser::ast::FunctionDeclarationStatement;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
@@ -6,6 +7,7 @@ pub(in crate::interpreter) enum LoxValue {
     Null,
     String(String),
     Number(f64),
+    Function(Function),
 }
 
 impl LoxValue {
@@ -37,6 +39,16 @@ impl Display for LoxValue {
             LoxValue::Null => write!(f, "`nil`"),
             LoxValue::String(s) => s.fmt(f),
             LoxValue::Number(n) => n.fmt(f),
+            LoxValue::Function(function) => function.fmt(f),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(in crate::interpreter) struct Function(pub(in crate::interpreter) FunctionDeclarationStatement);
+
+impl Display for Function {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<fn {}>", self.0.name.clone().lexeme())
     }
 }

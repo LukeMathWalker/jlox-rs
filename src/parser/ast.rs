@@ -5,6 +5,7 @@ pub enum Statement {
     Expression(ExpressionStatement),
     Print(PrintStatement),
     VariableDeclaration(VariableDeclarationStatement),
+    FunctionDeclaration(FunctionDeclarationStatement),
     Block(BlockStatement),
     IfElse(IfElseStatement),
     While(WhileStatement),
@@ -23,6 +24,13 @@ pub struct BlockStatement(pub Vec<Box<Statement>>);
 pub struct VariableDeclarationStatement {
     pub initializer: Option<Expression>,
     pub identifier: Token,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionDeclarationStatement {
+    pub name: Token,
+    pub parameters: Vec<Token>,
+    pub body: Vec<Box<Statement>>,
 }
 
 #[derive(Debug, Clone)]

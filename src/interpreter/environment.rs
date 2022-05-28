@@ -16,6 +16,24 @@ impl Environment {
         }
     }
 
+    /// Return a reference to the top-level scope.
+    pub fn globals(&self) -> &Scope {
+        self.parent_scopes
+            .first()
+            .unwrap_or_else(|| &self.current_scope)
+    }
+
+    /// Create a new environment, starting from a pre-existing scope.
+    ///
+    /// [`Self::new_nested`] does not automatically create a new scope - you have to explicitly call
+    /// [`Self::enter_scope`].
+    pub fn new_nested(parent_scope: Scope) -> Self {
+        Self {
+            current_scope: parent_scope,
+            parent_scopes: vec![],
+        }
+    }
+
     pub fn enter_scope(&mut self) -> ScopeGuard {
         let enclosing_scope = std::mem::replace(&mut self.current_scope, Scope::default());
         self.parent_scopes.push(enclosing_scope);
@@ -57,8 +75,8 @@ impl Environment {
     }
 }
 
-#[derive(Default, Debug)]
-struct Scope(HashMap<String, LoxValue>);
+#[derive(Default, Debug, Clone)]
+pub(in crate::interpreter) struct Scope(HashMap<String, LoxValue>);
 
 impl Scope {
     pub fn define(&mut self, variable_name: String, value: LoxValue) {
