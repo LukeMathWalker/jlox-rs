@@ -2,6 +2,7 @@ use crate::interpreter::lox_value::LoxValue;
 use crate::{Interpreter, RuntimeError};
 
 pub(in crate::interpreter) trait LoxCallable {
+    fn arity(&self) -> u8;
     fn call(
         self,
         interpreter: &mut Interpreter,
@@ -10,6 +11,10 @@ pub(in crate::interpreter) trait LoxCallable {
 }
 
 impl LoxCallable for LoxValue {
+    fn arity(&self) -> u8 {
+        todo!()
+    }
+
     fn call(
         self,
         _interpreter: &mut Interpreter,

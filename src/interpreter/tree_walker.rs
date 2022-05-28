@@ -226,6 +226,11 @@ impl<'a> Interpreter<'a> {
                     .into_iter()
                     .map(|a| self.eval(*a))
                     .collect::<Result<Vec<_>, _>>()?;
+                // This is fine since the parser will reject functions with more than 255 arguments
+                let n_arguments = arguments.len() as u8;
+                if callee.arity() != n_arguments {
+                    return Err(RuntimeError::arity_mismatch(callee.arity(), n_arguments));
+                }
                 callee.call(self, arguments)
             }
         }
@@ -284,6 +289,13 @@ impl RuntimeError {
         Self {
             t: None,
             msg: format!("Failed to flush the output stream.\n{}", e),
+        }
+    }
+
+    pub fn arity_mismatch(expected: u8, found: u8) -> Self {
+        Self {
+            t: None,
+            msg: format!("Expect {expected} arguments, but got {found} arguments."),
         }
     }
 }
