@@ -85,7 +85,7 @@ where
         if self.peek()?.discriminant() != TokenDiscriminant::RightParen {
             loop {
                 parameters.push(self.expect(TokenDiscriminant::Identifier)?);
-                if self.peek()?.discriminant() != TokenDiscriminant::Comma {
+                if self.advance_on_match(&[TokenDiscriminant::Comma]).is_none() {
                     break;
                 }
             }
@@ -351,7 +351,7 @@ where
         if self.peek()?.discriminant() != TokenDiscriminant::RightParen {
             loop {
                 arguments.push(self.expression()?);
-                if self.peek()?.discriminant() != TokenDiscriminant::Comma {
+                if self.advance_on_match(&[TokenDiscriminant::Comma]).is_none() {
                     break;
                 }
             }
