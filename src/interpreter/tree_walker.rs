@@ -129,10 +129,10 @@ impl<'a> Interpreter<'a> {
             }
             Statement::FunctionDeclaration(statement) => {
                 let function = Function(statement);
-                self.environment.assign(
+                self.environment.define(
                     function.0.name.clone().lexeme(),
                     LoxValue::Function(function),
-                )?;
+                );
             }
         }
         Ok(())

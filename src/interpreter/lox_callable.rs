@@ -27,7 +27,7 @@ impl LoxCallable for Function {
         for (parameter, argument) in zip(self.0.parameters, arguments) {
             scoped_interpreter
                 .environment
-                .assign(parameter.lexeme(), argument)?
+                .define(parameter.lexeme(), argument);
         }
         for statement in self.0.body {
             scoped_interpreter._execute(*statement)?;
