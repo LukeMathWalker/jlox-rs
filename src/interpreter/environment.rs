@@ -3,6 +3,7 @@ use crate::interpreter::tree_walker::RuntimeError;
 use drop_bomb::DropBomb;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub(in crate::interpreter) struct Environment {
     current_scope: Scope,
     parent_scopes: Vec<Scope>,
