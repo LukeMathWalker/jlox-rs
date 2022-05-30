@@ -24,3 +24,22 @@ print c;"#;
     let error = try_execute(source).unwrap_err();
     assert_display_snapshot!(error, @"An error occurred at runtime. Undefined variable named c");
 }
+
+#[test]
+fn closure_capture_works_as_expected() {
+    let source = r#"
+var a = "global";
+{
+  fun showA() {
+    print a;
+  }
+
+  showA();
+  var a = "block";
+  showA();
+}"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @"
+global
+global")
+}
