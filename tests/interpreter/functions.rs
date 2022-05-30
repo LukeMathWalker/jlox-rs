@@ -43,3 +43,22 @@ var a = "global";
 global
 global")
 }
+
+#[test]
+fn closure_can_capture_local_env() {
+    let source = r#"
+fun returnClosure() {
+    var a = 3;
+    fun showA() {
+        print a;
+    }
+    return showA;
+}
+
+var f = returnClosure();
+f();
+"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @"
+3")
+}
