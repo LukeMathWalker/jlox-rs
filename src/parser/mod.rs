@@ -2,7 +2,7 @@ pub mod ast;
 
 use crate::parser::ast::{
     BlockStatement, CallExpression, ExpressionStatement, FunctionDeclarationStatement,
-    IfElseStatement, PrintStatement, Statement, VariableAssignmentExpression,
+    IfElseStatement, PrintStatement, ReturnStatement, Statement, VariableAssignmentExpression,
     VariableDeclarationStatement, VariableReferenceExpression, WhileStatement,
 };
 use crate::scanner::{Token, TokenDiscriminant, TokenType};
@@ -111,6 +111,12 @@ where
     fn statement(&mut self) -> Option<Statement> {
         if self.advance_on_match(&[TokenDiscriminant::Print]).is_some() {
             self.print_statement().map(Statement::Print)
+        } else if self
+            .peek()
+            .filter(|&t| t.discriminant() == TokenDiscriminant::Return)
+            .is_some()
+        {
+            self.return_statement().map(Statement::Return)
         } else if self.advance_on_match(&[TokenDiscriminant::While]).is_some() {
             self.while_statement().map(Statement::While)
         } else if self.advance_on_match(&[TokenDiscriminant::For]).is_some() {
@@ -125,6 +131,23 @@ where
         } else {
             self.expression_statement().map(Statement::Expression)
         }
+    }
+
+    fn return_statement(&mut self) -> Option<ReturnStatement> {
+        let keyword = self.expect(TokenDiscriminant::Return)?;
+        let mut value = None;
+        if self
+            .peek()
+            .filter(|&t| t.discriminant() == TokenDiscriminant::Semicolon)
+            .is_none()
+        {
+            value = Some(self.expression()?);
+        }
+        let semicolon = self.expect(TokenDiscriminant::Semicolon)?;
+        Some(ReturnStatement {
+            keyword,
+            value: value.unwrap_or_else(|| Expression::null(semicolon)),
+        })
     }
 
     fn for_statement(&mut self) -> Option<Statement> {
@@ -547,6 +570,10 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             for s in body {
                 _display_statement(w, s, depth + 2)?;
             }
+        }
+        Statement::Return(ReturnStatement { value, .. }) => {
+            writeln!(w, "Return")?;
+            _display_expression(w, &value, depth + 1)?;
         }
     }
     Ok(())

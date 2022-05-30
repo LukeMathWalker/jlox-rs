@@ -1,4 +1,5 @@
 use crate::interpreter::lox_value::{Function, LoxValue};
+use crate::interpreter::tree_walker::RuntimeErrorOrReturn;
 use crate::{Interpreter, RuntimeError};
 use std::iter::zip;
 
@@ -30,7 +31,12 @@ impl LoxCallable for Function {
                 .define(parameter.lexeme(), argument);
         }
         for statement in self.0.body {
-            scoped_interpreter.execute(*statement)?;
+            if let Err(e) = scoped_interpreter._execute(*statement) {
+                return match e {
+                    RuntimeErrorOrReturn::RuntimeError(e) => Err(e),
+                    RuntimeErrorOrReturn::Return(v) => Ok(v.0),
+                };
+            }
         }
         Ok(LoxValue::Null)
     }

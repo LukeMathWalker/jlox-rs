@@ -3,7 +3,8 @@ use crate::interpreter::lox_callable::LoxCallable;
 use crate::interpreter::lox_value::{Function, LoxValue};
 use crate::parser::ast::{
     BinaryExpression, BlockStatement, ExpressionStatement, IfElseStatement, LiteralExpression,
-    PrintStatement, Statement, UnaryExpression, VariableDeclarationStatement, WhileStatement,
+    PrintStatement, ReturnStatement, Statement, UnaryExpression, VariableDeclarationStatement,
+    WhileStatement,
 };
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
@@ -60,7 +61,17 @@ impl<'a> Interpreter<'a> {
     }
 
     /// Execute a single Lox statement.
-    pub fn execute(&mut self, s: Statement) -> Result<(), RuntimeError> {
+    pub fn execute(&mut self, statement: Statement) -> Result<(), RuntimeError> {
+        self._execute(statement).map_err(|e| match e {
+            RuntimeErrorOrReturn::RuntimeError(e) => e,
+            RuntimeErrorOrReturn::Return(_) => RuntimeError::unexpected_return(),
+        })
+    }
+
+    pub(in crate::interpreter) fn _execute(
+        &mut self,
+        s: Statement,
+    ) -> Result<(), RuntimeErrorOrReturn> {
         match s {
             Statement::Expression(ExpressionStatement(e)) => {
                 self.eval(e)?;
@@ -86,7 +97,7 @@ impl<'a> Interpreter<'a> {
                 let guard = self.environment.enter_scope();
                 let mut error = None;
                 for statement in statements {
-                    if let Err(e) = self.execute(*statement) {
+                    if let Err(e) = self._execute(*statement) {
                         error = Some(e);
                         break;
                     }
@@ -102,14 +113,14 @@ impl<'a> Interpreter<'a> {
                 else_branch,
             }) => {
                 if self.eval(condition)?.is_truthy() {
-                    self.execute(*if_branch)?;
+                    self._execute(*if_branch)?;
                 } else if let Some(else_branch) = else_branch {
-                    self.execute(*else_branch)?;
+                    self._execute(*else_branch)?;
                 }
             }
             Statement::While(WhileStatement { condition, body }) => {
                 while self.eval(condition.clone())?.is_truthy() {
-                    self.execute(*body.clone())?;
+                    self._execute(*body.clone())?;
                 }
             }
             Statement::FunctionDeclaration(statement) => {
@@ -119,11 +130,15 @@ impl<'a> Interpreter<'a> {
                     LoxValue::Function(function),
                 );
             }
+            Statement::Return(ReturnStatement { value, .. }) => {
+                let value = self.eval(value)?;
+                return Err(Return(value).into());
+            }
         }
         Ok(())
     }
 
-    fn eval(&mut self, e: Expression) -> Result<LoxValue, RuntimeError> {
+    fn eval(&mut self, e: Expression) -> Result<LoxValue, RuntimeErrorOrReturn> {
         match e {
             Expression::Binary(b) => {
                 let BinaryExpression {
@@ -159,7 +174,8 @@ impl<'a> Interpreter<'a> {
                         (_, _) => Err(RuntimeError::new(
                             operator,
                             "`+` operands must either be both numbers or both strings",
-                        )),
+                        )
+                        .into()),
                     },
                     TokenDiscriminant::Slash => {
                         num_op(left, right, operator, |l, r| LoxValue::Number(l / r))
@@ -181,10 +197,9 @@ impl<'a> Interpreter<'a> {
                     }
                     TokenDiscriminant::EqualEqual => Ok(LoxValue::Boolean(left.is_equal(&right))),
                     TokenDiscriminant::BangEqual => Ok(LoxValue::Boolean(!left.is_equal(&right))),
-                    _ => Err(RuntimeError::new(
-                        operator,
-                        "It is not a valid binary operator",
-                    )),
+                    _ => {
+                        Err(RuntimeError::new(operator, "It is not a valid binary operator").into())
+                    }
                 }
             }
             Expression::Unary(u) => {
@@ -193,13 +208,14 @@ impl<'a> Interpreter<'a> {
                 match operator.discriminant() {
                     TokenDiscriminant::Minus => match value {
                         LoxValue::Number(n) => Ok(LoxValue::Number(-n)),
-                        _ => Err(RuntimeError::new(operator, "Operand must be a number")),
+                        _ => Err(RuntimeError::new(operator, "Operand must be a number").into()),
                     },
                     TokenDiscriminant::Bang => Ok(LoxValue::Boolean(!value.is_truthy())),
                     _ => Err(RuntimeError::new(
                         operator,
                         "`!` and `-` are the only valid unary operators",
-                    )),
+                    )
+                    .into()),
                 }
             }
             Expression::Literal(l) => match l {
@@ -219,7 +235,7 @@ impl<'a> Interpreter<'a> {
             Expression::Grouping(g) => self.eval(*g.0),
             Expression::VariableReference(v) => {
                 let name = v.identifier.lexeme();
-                self.environment.get_value(&name)
+                Ok(self.environment.get_value(&name)?)
             }
             Expression::VariableAssignment(v) => {
                 let name = v.identifier.lexeme();
@@ -239,15 +255,17 @@ impl<'a> Interpreter<'a> {
                         // This is fine since the parser will reject functions with more than 255 arguments
                         let n_arguments = arguments.len() as u8;
                         if callee.arity() != n_arguments {
-                            return Err(RuntimeError::arity_mismatch(callee.arity(), n_arguments));
+                            return Err(
+                                RuntimeError::arity_mismatch(callee.arity(), n_arguments).into()
+                            );
                         }
-                        callee.call(self, arguments)
+                        Ok(callee.call(self, arguments)?)
                     }
                     LoxValue::Boolean(_)
                     | LoxValue::Null
                     | LoxValue::String(_)
                     | LoxValue::Number(_) => {
-                        return Err(RuntimeError::not_callable(&callee));
+                        return Err(RuntimeError::not_callable(&callee).into());
                     }
                 }
             }
@@ -261,13 +279,13 @@ fn num_op<F>(
     right: LoxValue,
     operator: Token,
     operation: F,
-) -> Result<LoxValue, RuntimeError>
+) -> Result<LoxValue, RuntimeErrorOrReturn>
 where
     F: Fn(f64, f64) -> LoxValue,
 {
     match (left, right) {
         (LoxValue::Number(l), LoxValue::Number(r)) => Ok(operation(l, r)),
-        (_, _) => Err(RuntimeError::operands_must_be_numbers(operator)),
+        (_, _) => Err(RuntimeError::operands_must_be_numbers(operator).into()),
     }
 }
 
@@ -278,6 +296,18 @@ pub enum ExecuteRawError {
     #[error(transparent)]
     RuntimeError(RuntimeError),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub(in crate::interpreter) enum RuntimeErrorOrReturn {
+    #[error(transparent)]
+    RuntimeError(#[from] RuntimeError),
+    #[error(transparent)]
+    Return(#[from] Return),
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("An early return was encountered")]
+pub(in crate::interpreter) struct Return(pub(in crate::interpreter) LoxValue);
 
 #[derive(Debug, thiserror::Error)]
 #[error("An error occurred at runtime. {msg}")]
@@ -330,6 +360,13 @@ impl RuntimeError {
         Self {
             t: None,
             msg: format!("`{v}` is not callable."),
+        }
+    }
+
+    fn unexpected_return() -> Self {
+        Self {
+            t: None,
+            msg: format!("`return` was used in an illegal position"),
         }
     }
 }

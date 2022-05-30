@@ -9,6 +9,7 @@ pub enum Statement {
     Block(BlockStatement),
     IfElse(IfElseStatement),
     While(WhileStatement),
+    Return(ReturnStatement),
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +45,12 @@ pub struct IfElseStatement {
 pub struct WhileStatement {
     pub condition: Expression,
     pub body: Box<Statement>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReturnStatement {
+    pub keyword: Token,
+    pub value: Expression,
 }
 
 #[derive(Debug, Clone)]
