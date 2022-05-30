@@ -13,3 +13,16 @@ sayHi("Dear", "Reader");"#;
     Hi, Dear Reader!
     "###);
 }
+
+#[test]
+fn function_scope_does_not_leak() {
+    let source = r#"fun f() {
+    var c = 1;
+}
+
+print c;"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @r###"
+    Hi, Dear Reader!
+    "###);
+}

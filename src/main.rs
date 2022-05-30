@@ -11,7 +11,8 @@ fn main() -> Result<(), std::io::Error> {
     } else if args.len() == 2 {
         let filepath = PathBuf::from(&args[1]);
         let file = std::fs::read_to_string(filepath)?;
-        if Interpreter::new(stdout()).execute_raw(&file).is_err() {
+        if let Err(e) = Interpreter::new(stdout()).execute_raw(&file) {
+            eprintln!("{}", e);
             std::process::exit(65);
         }
     } else {

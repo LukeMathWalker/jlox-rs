@@ -13,6 +13,8 @@ pub fn repl() -> Result<(), std::io::Error> {
             break Ok(());
         }
         let input = input.trim().to_string();
-        let _ = interpreter.execute_raw(&input);
+        if let Err(e) = interpreter.execute_raw(&input) {
+            eprintln!("{}", e);
+        }
     }
 }

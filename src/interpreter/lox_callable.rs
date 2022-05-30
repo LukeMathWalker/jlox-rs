@@ -30,7 +30,7 @@ impl LoxCallable for Function {
                 .define(parameter.lexeme(), argument);
         }
         for statement in self.0.body {
-            scoped_interpreter._execute(*statement)?;
+            scoped_interpreter.execute(*statement)?;
         }
         Ok(LoxValue::Null)
     }

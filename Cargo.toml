@@ -10,6 +10,7 @@ drop_bomb = "0.1.5"
 multipeek = "0.1"
 strum = "0.24.0"
 strum_macros = "0.24.0"
+thiserror = "1"
 
 [dev-dependencies]
 insta = "*"

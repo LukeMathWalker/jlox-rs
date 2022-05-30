@@ -43,39 +43,24 @@ impl<'a> Interpreter<'a> {
     /// It returns `Err` if an error was encountered while interpreting the code.
     /// The error type does not contain any information since `run` already takes care, internally,
     /// to report the errors it has encountered (i.e. print error messages to stdout).
-    pub fn execute_raw(&mut self, source: &str) -> Result<(), ()> {
-        match Parser::parse(Scanner::new(&source)) {
-            Ok(statements) => self.batch_execute(statements),
-            Err(statements) => {
-                println!(
-                    "Failed to parse the source code. Parsed tree:\n{:?}",
-                    statements
-                );
-                Err(())
-            }
-        }
-    }
-
-    /// Execute a single Lox statement.
-    pub fn execute(&mut self, statement: Statement) -> Result<(), ()> {
-        if let Err(e) = self._execute(statement) {
-            println!("Runtime error!\nToken:{:?}\nMessage:{}", e.t, e.msg);
-            return Err(());
-        } else {
-            Ok(())
-        }
+    pub fn execute_raw(&mut self, source: &str) -> Result<(), ExecuteRawError> {
+        let statements =
+            Parser::parse(Scanner::new(&source)).map_err(ExecuteRawError::ParserError)?;
+        self.batch_execute(statements)
+            .map_err(ExecuteRawError::RuntimeError)
     }
 
     /// Execute a series of statements.
     /// It exits as soon as a runtime error is encountered.
-    pub fn batch_execute(&mut self, statements: Vec<Statement>) -> Result<(), ()> {
+    pub fn batch_execute(&mut self, statements: Vec<Statement>) -> Result<(), RuntimeError> {
         for statement in statements {
             self.execute(statement)?;
         }
         Ok(())
     }
 
-    pub(in crate::interpreter) fn _execute(&mut self, s: Statement) -> Result<(), RuntimeError> {
+    /// Execute a single Lox statement.
+    pub fn execute(&mut self, s: Statement) -> Result<(), RuntimeError> {
         match s {
             Statement::Expression(ExpressionStatement(e)) => {
                 self.eval(e)?;
@@ -101,7 +86,7 @@ impl<'a> Interpreter<'a> {
                 let guard = self.environment.enter_scope();
                 let mut error = None;
                 for statement in statements {
-                    if let Err(e) = self._execute(*statement) {
+                    if let Err(e) = self.execute(*statement) {
                         error = Some(e);
                         break;
                     }
@@ -117,14 +102,14 @@ impl<'a> Interpreter<'a> {
                 else_branch,
             }) => {
                 if self.eval(condition)?.is_truthy() {
-                    self._execute(*if_branch)?;
+                    self.execute(*if_branch)?;
                 } else if let Some(else_branch) = else_branch {
-                    self._execute(*else_branch)?;
+                    self.execute(*else_branch)?;
                 }
             }
             Statement::While(WhileStatement { condition, body }) => {
                 while self.eval(condition.clone())?.is_truthy() {
-                    self._execute(*body.clone())?;
+                    self.execute(*body.clone())?;
                 }
             }
             Statement::FunctionDeclaration(statement) => {
@@ -286,7 +271,16 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+pub enum ExecuteRawError {
+    #[error("Failed to parse the source code")]
+    ParserError(Vec<Statement>),
+    #[error(transparent)]
+    RuntimeError(RuntimeError),
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("An error occurred at runtime. {msg}")]
 pub struct RuntimeError {
     t: Option<Token>,
     msg: String,
