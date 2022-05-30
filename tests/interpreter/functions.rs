@@ -1,4 +1,4 @@
-use crate::helpers::execute;
+use crate::helpers::{execute, try_execute};
 use insta::assert_display_snapshot;
 
 #[test]
@@ -21,8 +21,6 @@ fn function_scope_does_not_leak() {
 }
 
 print c;"#;
-    let output = execute(source);
-    assert_display_snapshot!(output, @r###"
-    Hi, Dear Reader!
-    "###);
+    let error = try_execute(source).unwrap_err();
+    assert_display_snapshot!(error, @"An error occurred at runtime. Undefined variable named c");
 }
