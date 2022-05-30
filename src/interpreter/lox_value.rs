@@ -1,5 +1,8 @@
+use crate::interpreter::environment::Environment;
 use crate::parser::ast::FunctionDeclarationStatement;
+use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub(in crate::interpreter) enum LoxValue {
@@ -45,10 +48,13 @@ impl Display for LoxValue {
 }
 
 #[derive(Debug, Clone)]
-pub(in crate::interpreter) struct Function(pub(in crate::interpreter) FunctionDeclarationStatement);
+pub(in crate::interpreter) struct Function {
+    pub(in crate::interpreter) closure: Rc<RefCell<Environment>>,
+    pub(in crate::interpreter) declaration: FunctionDeclarationStatement,
+}
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<fn {}>", self.0.name.clone().lexeme())
+        write!(f, "<fn {}>", self.declaration.name.clone().lexeme())
     }
 }

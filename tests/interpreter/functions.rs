@@ -62,3 +62,25 @@ f();
     assert_display_snapshot!(output, @"
 3")
 }
+
+#[test]
+fn local_function() {
+    let source = r#"
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter = makeCounter();
+counter();
+counter();"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @"
+1
+2")
+}

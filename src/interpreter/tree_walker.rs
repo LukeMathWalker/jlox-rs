@@ -8,6 +8,7 @@ use crate::parser::ast::{
 };
 use crate::parser::{ast::Expression, Parser};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
+use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -32,9 +33,9 @@ impl<'a> Interpreter<'a> {
     /// output stream.
     ///
     /// This is used in the implementation of function calls.
-    pub(in crate::interpreter) fn fork(&self) -> Self {
+    pub(in crate::interpreter) fn fork(&self, environment: Environment) -> Self {
         Self {
-            environment: Environment::new_nested(self.environment.globals().clone()),
+            environment,
             output_stream: Rc::clone(&self.output_stream),
         }
     }
@@ -124,9 +125,12 @@ impl<'a> Interpreter<'a> {
                 }
             }
             Statement::FunctionDeclaration(statement) => {
-                let function = Function(statement);
+                let function = Function {
+                    closure: Rc::new(RefCell::new(self.environment.clone())),
+                    declaration: statement,
+                };
                 self.environment.define(
-                    function.0.name.clone().lexeme(),
+                    function.declaration.name.clone().lexeme(),
                     LoxValue::Function(function),
                 );
             }

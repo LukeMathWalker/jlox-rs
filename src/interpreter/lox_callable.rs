@@ -15,7 +15,7 @@ pub(in crate::interpreter) trait LoxCallable {
 impl LoxCallable for Function {
     fn arity(&self) -> u8 {
         // Safe because the parser enforces that we do not have more than 255 parameters
-        self.0.parameters.len() as u8
+        self.declaration.parameters.len() as u8
     }
 
     fn call(
@@ -23,14 +23,14 @@ impl LoxCallable for Function {
         interpreter: &mut Interpreter,
         arguments: Vec<LoxValue>,
     ) -> Result<LoxValue, RuntimeError> {
-        let mut scoped_interpreter = interpreter.fork();
+        let mut scoped_interpreter = interpreter.fork(self.closure);
 
-        for (parameter, argument) in zip(self.0.parameters, arguments) {
+        for (parameter, argument) in zip(self.declaration.parameters, arguments) {
             scoped_interpreter
                 .environment
                 .define(parameter.lexeme(), argument);
         }
-        for statement in self.0.body {
+        for statement in self.declaration.body {
             if let Err(e) = scoped_interpreter._execute(*statement) {
                 return match e {
                     RuntimeErrorOrReturn::RuntimeError(e) => Err(e),

@@ -3,7 +3,7 @@ use crate::interpreter::tree_walker::RuntimeError;
 use drop_bomb::DropBomb;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(in crate::interpreter) struct Environment {
     current_scope: Scope,
     parent_scopes: Vec<Scope>,
@@ -22,17 +22,6 @@ impl Environment {
         self.parent_scopes
             .first()
             .unwrap_or_else(|| &self.current_scope)
-    }
-
-    /// Create a new environment, starting from a pre-existing scope.
-    ///
-    /// [`Self::new_nested`] does not automatically create a new scope - you have to explicitly call
-    /// [`Self::enter_scope`].
-    pub fn new_nested(parent_scope: Scope) -> Self {
-        Self {
-            current_scope: parent_scope,
-            parent_scopes: vec![],
-        }
     }
 
     pub fn enter_scope(&mut self) -> ScopeGuard {
