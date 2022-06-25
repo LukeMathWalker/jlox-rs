@@ -19,7 +19,7 @@ pub struct ExpressionStatement(pub Expression);
 pub struct PrintStatement(pub Expression);
 
 #[derive(Debug, Clone)]
-pub struct BlockStatement(pub Vec<Box<Statement>>);
+pub struct BlockStatement(pub Vec<Statement>);
 
 #[derive(Debug, Clone)]
 pub struct VariableDeclarationStatement {
@@ -31,7 +31,7 @@ pub struct VariableDeclarationStatement {
 pub struct FunctionDeclarationStatement {
     pub name: Token,
     pub parameters: Vec<Token>,
-    pub body: Vec<Box<Statement>>,
+    pub body: Vec<Statement>,
 }
 
 #[derive(Debug, Clone)]

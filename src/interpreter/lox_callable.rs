@@ -35,7 +35,7 @@ impl LoxCallable for Function {
                 .define(parameter.lexeme(), argument);
         }
         for statement in self.declaration.body {
-            if let Err(e) = scoped_interpreter._execute(*statement) {
+            if let Err(e) = scoped_interpreter._execute(statement) {
                 return match e {
                     RuntimeErrorOrReturn::RuntimeError(e) => Err(e),
                     RuntimeErrorOrReturn::Return(v) => Ok(v.0),

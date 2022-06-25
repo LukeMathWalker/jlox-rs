@@ -100,7 +100,7 @@ impl<'a, 'b> Interpreter<'a, 'b> {
                 let guard = self.environment.enter_scope();
                 let mut error = None;
                 for statement in statements {
-                    if let Err(e) = self._execute(*statement) {
+                    if let Err(e) = self._execute(statement) {
                         error = Some(e);
                         break;
                     }

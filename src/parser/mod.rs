@@ -104,7 +104,7 @@ where
         Some(FunctionDeclarationStatement {
             name,
             parameters,
-            body: body.0,
+            body: vec![Statement::Block(body)],
         })
     }
 
@@ -183,8 +183,8 @@ where
         // De-sugaring the for loop into an equivalent while loop
         if let Some(increment) = increment {
             body = Statement::Block(BlockStatement(vec![
-                Box::new(body),
-                Box::new(Statement::Expression(ExpressionStatement(increment))),
+                body,
+                Statement::Expression(ExpressionStatement(increment)),
             ]))
         }
 
@@ -194,7 +194,7 @@ where
         });
 
         if let Some(initializer) = initializer {
-            body = Statement::Block(BlockStatement(vec![Box::new(initializer), Box::new(body)]))
+            body = Statement::Block(BlockStatement(vec![initializer, body]))
         }
 
         Some(body)
@@ -212,7 +212,7 @@ where
                     break;
                 }
             }
-            statements.push(Box::new(self.declaration()?));
+            statements.push(self.declaration()?);
         }
         self.expect(TokenDiscriminant::RightBrace)?;
         Some(BlockStatement(statements))
