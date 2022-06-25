@@ -1,7 +1,9 @@
 use crate::interpreter::lox_value::LoxValue;
 use crate::interpreter::tree_walker::RuntimeError;
 use drop_bomb::DropBomb;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Default)]
 pub struct Environment {
@@ -66,24 +68,25 @@ impl Environment {
 }
 
 #[derive(Default, Debug, Clone)]
-pub(in crate::interpreter) struct Scope(HashMap<String, LoxValue>);
+pub(in crate::interpreter) struct Scope(HashMap<String, Rc<RefCell<LoxValue>>>);
 
 impl Scope {
     pub fn define(&mut self, variable_name: String, value: LoxValue) {
-        self.0.insert(variable_name, value);
+        self.0.insert(variable_name, Rc::new(RefCell::new(value)));
     }
 
     pub fn assign(&mut self, variable_name: &str, value: &LoxValue) -> Result<(), ()> {
-        if self.0.contains_key(variable_name) {
-            self.0.insert(variable_name.to_owned(), value.to_owned());
-            Ok(())
-        } else {
-            Err(())
+        match self.0.get(variable_name) {
+            None => Err(()),
+            Some(slot) => {
+                *slot.borrow_mut() = value.to_owned();
+                Ok(())
+            }
         }
     }
 
     pub fn get_value(&self, variable_name: &str) -> Option<LoxValue> {
-        self.0.get(variable_name).cloned()
+        self.0.get(variable_name).map(|v| v.borrow().clone())
     }
 }
 
