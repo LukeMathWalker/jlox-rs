@@ -35,3 +35,21 @@ print c;"#;
     global c
     "###);
 }
+
+#[test]
+fn function_and_lexical_scopes() {
+    let source = r#"var a = "global";
+{
+  fun showA() {
+    print a;
+  }
+  
+  showA();
+  var a = "block";
+  showA();
+}"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @r###"
+global
+global"###);
+}

@@ -84,3 +84,21 @@ counter();"#;
 1
 2")
 }
+
+#[test]
+fn recursion() {
+    let source = r#"
+fun count(n) {
+  if (n > 1) {
+    count(n - 1);
+  }
+  print n;
+}
+
+count(3);"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @"
+1
+2
+3")
+}
