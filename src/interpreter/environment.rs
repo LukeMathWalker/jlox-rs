@@ -3,7 +3,7 @@ use crate::interpreter::tree_walker::RuntimeError;
 use drop_bomb::DropBomb;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Environment {
     current_scope: Scope,
     parent_scopes: Vec<Scope>,
@@ -18,7 +18,7 @@ impl Environment {
     }
 
     pub(in crate::interpreter) fn enter_scope(&mut self) -> ScopeGuard {
-        let enclosing_scope = std::mem::replace(&mut self.current_scope, Scope::default());
+        let enclosing_scope = std::mem::take(&mut self.current_scope);
         self.parent_scopes.push(enclosing_scope);
         ScopeGuard(DropBomb::new("You forgot to close a scope"))
     }

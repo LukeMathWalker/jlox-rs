@@ -197,10 +197,7 @@ impl<'a> Scanner<'a> {
     // of the code we are scanning.
     // For lox, we are talking about whitespace, tabs and new lines.
     fn is_trivia(c: &char) -> bool {
-        match c {
-            ' ' | '\r' | '\t' | '\n' => true,
-            _ => false,
-        }
+        matches!(c, ' ' | '\r' | '\t' | '\n')
     }
 
     fn advance_on_match(&mut self, c: char) -> bool {
@@ -240,6 +237,7 @@ impl<'a> Scanner<'a> {
         self.source.peek_nth(n)
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn is_at_end(&mut self) -> bool {
         self.peek().is_none()
     }

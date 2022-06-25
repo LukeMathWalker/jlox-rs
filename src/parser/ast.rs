@@ -119,7 +119,7 @@ impl Expression {
         Self::Call(CallExpression {
             callee: Box::new(callee),
             closing_parenthesis,
-            arguments: arguments.into_iter().map(Box::new).collect(),
+            arguments,
         })
     }
 }
@@ -167,5 +167,5 @@ pub struct GroupingExpression(pub Box<Expression>);
 pub struct CallExpression {
     pub callee: Box<Expression>,
     pub closing_parenthesis: Token,
-    pub arguments: Vec<Box<Expression>>,
+    pub arguments: Vec<Expression>,
 }

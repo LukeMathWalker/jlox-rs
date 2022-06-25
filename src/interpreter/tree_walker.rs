@@ -49,7 +49,7 @@ impl<'a, 'b> Interpreter<'a, 'b> {
     /// to report the errors it has encountered (i.e. print error messages to stdout).
     pub fn execute_raw(&mut self, source: &str) -> Result<(), ExecuteRawError> {
         let statements =
-            Parser::parse(Scanner::new(&source)).map_err(ExecuteRawError::ParserError)?;
+            Parser::parse(Scanner::new(source)).map_err(ExecuteRawError::ParserError)?;
         self.batch_execute(statements)
             .map_err(ExecuteRawError::RuntimeError)
     }
@@ -254,7 +254,7 @@ impl<'a, 'b> Interpreter<'a, 'b> {
                 let arguments = c
                     .arguments
                     .into_iter()
-                    .map(|a| self.eval(*a))
+                    .map(|a| self.eval(a))
                     .collect::<Result<Vec<_>, _>>()?;
                 match callee {
                     LoxValue::Function(callee) => {
@@ -270,9 +270,7 @@ impl<'a, 'b> Interpreter<'a, 'b> {
                     LoxValue::Boolean(_)
                     | LoxValue::Null
                     | LoxValue::String(_)
-                    | LoxValue::Number(_) => {
-                        return Err(RuntimeError::not_callable(&callee).into());
-                    }
+                    | LoxValue::Number(_) => Err(RuntimeError::not_callable(&callee).into()),
                 }
             }
         }
@@ -372,7 +370,7 @@ impl RuntimeError {
     fn unexpected_return() -> Self {
         Self {
             t: None,
-            msg: format!("`return` was used in an illegal position"),
+            msg: "`return` was used in an illegal position".into(),
         }
     }
 }

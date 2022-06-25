@@ -474,6 +474,7 @@ where
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn is_at_end(&mut self) -> bool {
         self.tokens.peek().is_none()
     }
@@ -516,20 +517,20 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
     match s {
         Statement::Expression(ExpressionStatement(e)) => {
             writeln!(w, "Expression")?;
-            _display_expression(w, &e, depth + 1)?;
+            _display_expression(w, e, depth + 1)?;
         }
         Statement::Print(PrintStatement(e)) => {
             writeln!(w, "Print")?;
-            _display_expression(w, &e, depth + 1)?;
+            _display_expression(w, e, depth + 1)?;
         }
         Statement::VariableDeclaration(VariableDeclarationStatement {
             initializer,
             identifier,
         }) => {
             writeln!(w, "Variable Declaration")?;
-            _display_token(w, &identifier, depth + 1)?;
+            _display_token(w, identifier, depth + 1)?;
             if let Some(e) = initializer {
-                _display_expression(w, &e, depth + 1)?;
+                _display_expression(w, e, depth + 1)?;
             }
         }
         Statement::Block(BlockStatement(statements)) => {
@@ -561,10 +562,10 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
             body,
         }) => {
             writeln!(w, "Function Declaration")?;
-            _display_token(w, &name, depth + 1)?;
+            _display_token(w, name, depth + 1)?;
             _display_string(w, "Parameters", depth + 1)?;
             for parameter in parameters {
-                _display_token(w, &parameter, depth + 2)?;
+                _display_token(w, parameter, depth + 2)?;
             }
             _display_string(w, "Body", depth + 1)?;
             for s in body {
@@ -573,7 +574,7 @@ fn _display_statement(w: &mut impl Write, s: &Statement, depth: u8) -> Result<()
         }
         Statement::Return(ReturnStatement { value, .. }) => {
             writeln!(w, "Return")?;
-            _display_expression(w, &value, depth + 1)?;
+            _display_expression(w, value, depth + 1)?;
         }
     }
     Ok(())
@@ -646,7 +647,7 @@ fn _display_token(w: &mut impl Write, t: &Token, depth: u8) -> std::fmt::Result 
     match t.ty() {
         TokenType::String(s) => writeln!(w, " \"{}\"", s)?,
         TokenType::Number(n) => writeln!(w, " {}", n)?,
-        _ => writeln!(w, "")?,
+        _ => writeln!(w)?,
     }
     Ok(())
 }
