@@ -1,6 +1,8 @@
 use jlox::{repl, Environment, Interpreter};
+use std::cell::RefCell;
 use std::io::stdout;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
@@ -11,8 +13,8 @@ fn main() -> Result<(), std::io::Error> {
     } else if args.len() == 2 {
         let filepath = PathBuf::from(&args[1]);
         let file = std::fs::read_to_string(filepath)?;
-        let mut environment = Environment::new();
-        if let Err(e) = Interpreter::new(stdout(), &mut environment).execute_raw(&file) {
+        let environment = Rc::new(RefCell::new(Environment::new()));
+        if let Err(e) = Interpreter::new(stdout(), environment).execute_raw(&file) {
             eprintln!("{}", e);
             std::process::exit(65);
         }

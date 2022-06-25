@@ -13,13 +13,13 @@ use std::io::Write;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-pub struct Interpreter<'a, 'b> {
-    pub(in crate::interpreter) environment: &'b mut Environment,
+pub struct Interpreter<'a> {
+    pub(in crate::interpreter) environment: Rc<RefCell<Environment>>,
     output_stream: Rc<Mutex<dyn Write + 'a>>,
 }
 
-impl<'a, 'b> Interpreter<'a, 'b> {
-    pub fn new<OutputStream>(output: OutputStream, environment: &'b mut Environment) -> Self
+impl<'a> Interpreter<'a> {
+    pub fn new<OutputStream>(output: OutputStream, environment: Rc<RefCell<Environment>>) -> Self
     where
         OutputStream: Write + 'a,
     {
@@ -28,15 +28,16 @@ impl<'a, 'b> Interpreter<'a, 'b> {
             output_stream: Rc::new(Mutex::new(output)),
         }
     }
-}
 
-impl<'a, 'b> Interpreter<'a, 'b> {
     /// Create a new interpreter instance that inherits the global scope and shares the same
     /// output stream.
     ///
     /// This is used in the implementation of function calls.
-    pub(in crate::interpreter) fn fork(&self, environment: &'b mut Environment) -> Self {
-        Self {
+    pub(in crate::interpreter) fn fork(
+        &self,
+        environment: Rc<RefCell<Environment>>,
+    ) -> Interpreter<'a> {
+        Interpreter {
             environment,
             output_stream: Rc::clone(&self.output_stream),
         }
@@ -94,10 +95,12 @@ impl<'a, 'b> Interpreter<'a, 'b> {
                 } else {
                     LoxValue::Null
                 };
-                self.environment.define(identifier.lexeme(), value);
+                (*self.environment)
+                    .borrow_mut()
+                    .define(identifier.lexeme(), value);
             }
             Statement::Block(BlockStatement(statements)) => {
-                let guard = self.environment.enter_scope();
+                let guard = (*self.environment).borrow_mut().enter_scope();
                 let mut error = None;
                 for statement in statements {
                     if let Err(e) = self._execute(statement) {
@@ -105,7 +108,7 @@ impl<'a, 'b> Interpreter<'a, 'b> {
                         break;
                     }
                 }
-                self.environment.exit_scope(guard);
+                (*self.environment).borrow_mut().exit_scope(guard);
                 if let Some(e) = error {
                     return Err(e);
                 }
@@ -128,12 +131,18 @@ impl<'a, 'b> Interpreter<'a, 'b> {
             }
             Statement::FunctionDeclaration(statement) => {
                 let function = Function {
-                    closure: Rc::new(RefCell::new(self.environment.clone())),
+                    closure: Rc::new(RefCell::new(self.environment.borrow().to_owned())),
                     declaration: statement,
                 };
-                self.environment.define(
+                (*self.environment).borrow_mut().define(
                     function.declaration.name.clone().lexeme(),
-                    LoxValue::Function(function),
+                    LoxValue::Function(function.clone()),
+                );
+                // We need the function itself to exist in the environment it closes over,
+                // otherwise recursion won't work.
+                (*function.closure).borrow_mut().define(
+                    function.declaration.name.clone().lexeme(),
+                    LoxValue::Function(function.clone()),
                 );
             }
             Statement::Return(ReturnStatement { value, .. }) => {
@@ -241,12 +250,14 @@ impl<'a, 'b> Interpreter<'a, 'b> {
             Expression::Grouping(g) => self.eval(*g.0),
             Expression::VariableReference(v) => {
                 let name = v.identifier.lexeme();
-                Ok(self.environment.get_value(&name)?)
+                Ok((*self.environment).borrow().get_value(&name)?)
             }
             Expression::VariableAssignment(v) => {
                 let name = v.identifier.lexeme();
                 let value = self.eval(*v.value)?;
-                self.environment.assign(name, value.clone())?;
+                (*self.environment)
+                    .borrow_mut()
+                    .assign(name, value.clone())?;
                 Ok(value)
             }
             Expression::Call(c) => {

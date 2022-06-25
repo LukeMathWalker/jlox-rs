@@ -98,6 +98,7 @@ fun count(n) {
 count(3);"#;
     let output = execute(source);
     assert_display_snapshot!(output, @"
+0
 1
 2
 3")
