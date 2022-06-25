@@ -2,6 +2,7 @@ use crate::interpreter::lox_value::{Function, LoxValue};
 use crate::interpreter::tree_walker::RuntimeErrorOrReturn;
 use crate::{Interpreter, RuntimeError};
 use std::iter::zip;
+use std::ops::{Deref, DerefMut};
 
 pub(in crate::interpreter) trait LoxCallable {
     fn arity(&self) -> u8;
@@ -23,7 +24,10 @@ impl LoxCallable for Function {
         interpreter: &mut Interpreter,
         arguments: Vec<LoxValue>,
     ) -> Result<LoxValue, RuntimeError> {
-        let mut scoped_interpreter = interpreter.fork(self.closure);
+        let scoped_env = self.closure.clone();
+        let a = scoped_env.deref();
+        let mut b = a.borrow_mut();
+        let mut scoped_interpreter = interpreter.fork(b.deref_mut());
 
         for (parameter, argument) in zip(self.declaration.parameters, arguments) {
             scoped_interpreter

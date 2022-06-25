@@ -1,4 +1,4 @@
-use jlox::{repl, Interpreter};
+use jlox::{repl, Environment, Interpreter};
 use std::io::stdout;
 use std::path::PathBuf;
 
@@ -11,7 +11,8 @@ fn main() -> Result<(), std::io::Error> {
     } else if args.len() == 2 {
         let filepath = PathBuf::from(&args[1]);
         let file = std::fs::read_to_string(filepath)?;
-        if let Err(e) = Interpreter::new(stdout()).execute_raw(&file) {
+        let mut environment = Environment::new();
+        if let Err(e) = Interpreter::new(stdout(), &mut environment).execute_raw(&file) {
             eprintln!("{}", e);
             std::process::exit(65);
         }

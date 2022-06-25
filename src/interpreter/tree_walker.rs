@@ -13,27 +13,29 @@ use std::io::Write;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-pub struct Interpreter<'a> {
-    pub(in crate::interpreter) environment: Environment,
+pub struct Interpreter<'a, 'b> {
+    pub(in crate::interpreter) environment: &'b mut Environment,
     output_stream: Rc<Mutex<dyn Write + 'a>>,
 }
 
-impl<'a> Interpreter<'a> {
-    pub fn new<OutputStream>(output: OutputStream) -> Self
+impl<'a, 'b> Interpreter<'a, 'b> {
+    pub fn new<OutputStream>(output: OutputStream, environment: &'b mut Environment) -> Self
     where
         OutputStream: Write + 'a,
     {
         Self {
-            environment: Environment::new(),
+            environment,
             output_stream: Rc::new(Mutex::new(output)),
         }
     }
+}
 
+impl<'a, 'b> Interpreter<'a, 'b> {
     /// Create a new interpreter instance that inherits the global scope and shares the same
     /// output stream.
     ///
     /// This is used in the implementation of function calls.
-    pub(in crate::interpreter) fn fork(&self, environment: Environment) -> Self {
+    pub(in crate::interpreter) fn fork(&self, environment: &'b mut Environment) -> Self {
         Self {
             environment,
             output_stream: Rc::clone(&self.output_stream),

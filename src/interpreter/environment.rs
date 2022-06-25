@@ -4,7 +4,7 @@ use drop_bomb::DropBomb;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub(in crate::interpreter) struct Environment {
+pub struct Environment {
     current_scope: Scope,
     parent_scopes: Vec<Scope>,
 }
@@ -17,30 +17,27 @@ impl Environment {
         }
     }
 
-    /// Return a reference to the top-level scope.
-    pub fn globals(&self) -> &Scope {
-        self.parent_scopes
-            .first()
-            .unwrap_or_else(|| &self.current_scope)
-    }
-
-    pub fn enter_scope(&mut self) -> ScopeGuard {
+    pub(in crate::interpreter) fn enter_scope(&mut self) -> ScopeGuard {
         let enclosing_scope = std::mem::replace(&mut self.current_scope, Scope::default());
         self.parent_scopes.push(enclosing_scope);
         ScopeGuard(DropBomb::new("You forgot to close a scope"))
     }
 
-    pub fn exit_scope(&mut self, mut guard: ScopeGuard) {
+    pub(in crate::interpreter) fn exit_scope(&mut self, mut guard: ScopeGuard) {
         guard.0.defuse();
         let parent_scope = self.parent_scopes.pop().unwrap();
         self.current_scope = parent_scope;
     }
 
-    pub fn define(&mut self, variable_name: String, value: LoxValue) {
+    pub(in crate::interpreter) fn define(&mut self, variable_name: String, value: LoxValue) {
         self.current_scope.define(variable_name, value);
     }
 
-    pub fn assign(&mut self, variable_name: String, value: LoxValue) -> Result<(), RuntimeError> {
+    pub(in crate::interpreter) fn assign(
+        &mut self,
+        variable_name: String,
+        value: LoxValue,
+    ) -> Result<(), RuntimeError> {
         if self.current_scope.assign(&variable_name, &value).is_ok() {
             return Ok(());
         }
@@ -52,7 +49,10 @@ impl Environment {
         Err(RuntimeError::undefined_variable(&variable_name))
     }
 
-    pub fn get_value(&self, variable_name: &str) -> Result<LoxValue, RuntimeError> {
+    pub(in crate::interpreter) fn get_value(
+        &self,
+        variable_name: &str,
+    ) -> Result<LoxValue, RuntimeError> {
         if let Some(value) = self.current_scope.get_value(variable_name) {
             return Ok(value);
         }
