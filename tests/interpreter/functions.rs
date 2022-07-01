@@ -22,7 +22,7 @@ fn function_scope_does_not_leak() {
 
 print c;"#;
     let error = try_execute(source).unwrap_err();
-    assert_display_snapshot!(error, @"An error occurred at runtime. Undefined variable named c");
+    assert_display_snapshot!(error, @"Tried to read an undefined variable");
 }
 
 #[test]
@@ -83,6 +83,29 @@ counter();"#;
     assert_display_snapshot!(output, @"
 1
 2")
+}
+
+#[test]
+fn return_local_functions_are_independent() {
+    let source = r#"
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter1 = makeCounter();
+counter1();
+var counter2 = makeCounter();
+counter2();"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @"
+1
+1")
 }
 
 #[test]

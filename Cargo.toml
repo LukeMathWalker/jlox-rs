@@ -11,6 +11,7 @@ multipeek = "0.1"
 strum = "0.24.0"
 strum_macros = "0.24.0"
 thiserror = "1"
+anyhow = "1"
 
 [dev-dependencies]
 insta = "*"

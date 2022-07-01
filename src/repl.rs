@@ -1,13 +1,10 @@
-use crate::{Environment, Interpreter};
-use std::cell::RefCell;
+use crate::Interpreter;
 use std::io::{stdout, Write};
-use std::rc::Rc;
 
 /// Read-print-evaluation loop.
 /// It prompts the user to enter lox code and then interprets it on the fly.
 pub fn repl() -> Result<(), std::io::Error> {
-    let environment = Rc::new(RefCell::new(Environment::new()));
-    let mut interpreter = Interpreter::new(stdout(), environment);
+    let mut interpreter = Interpreter::new(stdout());
     loop {
         print!("> ");
         stdout().flush()?;
