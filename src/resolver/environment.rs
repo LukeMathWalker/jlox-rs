@@ -3,7 +3,7 @@ use crate::resolver::BindingId;
 use drop_bomb::DropBomb;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Environment {
     current_scope: Scope,
     parent_scopes: Vec<Scope>,
@@ -13,14 +13,14 @@ pub struct Environment {
 impl Environment {
     pub fn new() -> Self {
         Self {
-            current_scope: Default::default(),
+            current_scope: Scope::new(ScopeType::Other),
             parent_scopes: vec![],
             binding_id_cursor: 0,
         }
     }
 
-    pub(in crate::resolver) fn enter_scope(&mut self) -> ScopeGuard {
-        let enclosing_scope = std::mem::take(&mut self.current_scope);
+    pub(in crate::resolver) fn enter_scope(&mut self, type_: ScopeType) -> ScopeGuard {
+        let enclosing_scope = std::mem::replace(&mut self.current_scope, Scope::new(type_));
         self.parent_scopes.push(enclosing_scope);
         ScopeGuard(DropBomb::new("You forgot to close a scope"))
     }
@@ -34,8 +34,7 @@ impl Environment {
     pub(in crate::resolver) fn define(&mut self, variable_name: String) -> BindingId {
         let new_binding_id = self.binding_id_cursor;
         self.binding_id_cursor += 1;
-        self.current_scope.define(variable_name, new_binding_id);
-        new_binding_id
+        self.current_scope.define(variable_name, new_binding_id)
     }
 
     pub(in crate::resolver) fn assign(
@@ -71,17 +70,37 @@ impl Environment {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub(in crate::resolver) struct Scope(HashMap<String, (BindingId, BindingStatus)>);
+#[derive(Debug, Clone)]
+pub(in crate::resolver) struct Scope {
+    bindings: HashMap<String, (BindingId, BindingStatus)>,
+    type_: ScopeType,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(super) enum ScopeType {
+    Function,
+    Other,
+}
 
 impl Scope {
-    pub fn define(&mut self, variable_name: String, binding_id: BindingId) {
-        self.0
+    fn new(type_: ScopeType) -> Self {
+        Self {
+            bindings: Default::default(),
+            type_,
+        }
+    }
+    fn define(&mut self, variable_name: String, binding_id: u64) -> BindingId {
+        let binding_id = match self.type_ {
+            ScopeType::Function => BindingId::FunctionLocal(binding_id),
+            ScopeType::Other => BindingId::Predetermined(binding_id),
+        };
+        self.bindings
             .insert(variable_name, (binding_id, BindingStatus::Uninitialized));
+        binding_id
     }
 
-    pub fn assign(&mut self, variable_name: &str) -> Result<BindingId, ()> {
-        match self.0.get_mut(variable_name) {
+    fn assign(&mut self, variable_name: &str) -> Result<BindingId, ()> {
+        match self.bindings.get_mut(variable_name) {
             None => Err(()),
             Some(slot) => {
                 slot.1 = BindingStatus::Initialized;
@@ -90,8 +109,8 @@ impl Scope {
         }
     }
 
-    pub fn get(&self, variable_name: &str) -> Option<(BindingId, BindingStatus)> {
-        self.0.get(variable_name).cloned()
+    fn get(&self, variable_name: &str) -> Option<(BindingId, BindingStatus)> {
+        self.bindings.get(variable_name).cloned()
     }
 }
 

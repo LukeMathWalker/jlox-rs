@@ -22,7 +22,7 @@ fn function_scope_does_not_leak() {
 
 print c;"#;
     let error = try_execute(source).unwrap_err();
-    assert_display_snapshot!(error, @"An error occurred at runtime. Undefined variable named c");
+    assert_display_snapshot!(error, @"Tried to read an undefined variable");
 }
 
 #[test]

@@ -1,8 +1,7 @@
 use super::resolved_ast as r_ast;
 use crate::parser::ast;
 use crate::parser::ast::{Expression, Statement};
-use crate::resolver::environment::Environment;
-use anyhow::Error;
+use crate::resolver::environment::{Environment, ScopeType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BindingStatus {
@@ -12,12 +11,14 @@ pub enum BindingStatus {
 
 pub struct Resolver {
     environment: Environment,
+    scope_type: ScopeType,
 }
 
 impl Resolver {
     pub fn new() -> Self {
         Self {
             environment: Environment::new(),
+            scope_type: ScopeType::Other,
         }
     }
 
@@ -39,11 +40,15 @@ impl Resolver {
     ) -> Result<r_ast::Statement, anyhow::Error> {
         let s = match statement {
             Statement::VariableDeclaration(v) => {
-                let binding_id = self.environment.define(v.identifier.lexeme().clone());
+                let identifier = v.identifier.lexeme();
+                let binding_id = self.environment.define(identifier.clone());
                 let initializer = v
                     .initializer
                     .map(|init| self.resolve_expression(init))
                     .transpose()?;
+                if initializer.is_some() {
+                    self.environment.assign(identifier)?;
+                }
                 r_ast::Statement::VariableDeclaration(r_ast::VariableDeclarationStatement {
                     initializer,
                     binding_id,
@@ -61,6 +66,9 @@ impl Resolver {
                 // We allow recursive functions, therefore we immediately mark the function name
                 // binding as assigned.
                 self.environment.assign(name)?;
+                let previous_scope_type = self.scope_type;
+
+                self.scope_type = ScopeType::Function;
 
                 let parameters_binding_ids = f
                     .parameters
@@ -76,6 +84,9 @@ impl Resolver {
 
                 let body = self.resolve(f.body)?;
 
+                // Reset to the previous scope type.
+                self.scope_type = previous_scope_type;
+
                 r_ast::Statement::FunctionDeclaration(r_ast::FunctionDeclarationStatement {
                     name_binding_id,
                     parameters_binding_ids,
@@ -83,7 +94,7 @@ impl Resolver {
                 })
             }
             Statement::Block(b) => {
-                let scope_guard = self.environment.enter_scope();
+                let scope_guard = self.environment.enter_scope(self.scope_type);
                 let outcome = self.resolve(b.0);
                 self.environment.exit_scope(scope_guard);
                 r_ast::Statement::Block(r_ast::BlockStatement(outcome?))
