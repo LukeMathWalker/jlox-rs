@@ -86,6 +86,29 @@ counter();"#;
 }
 
 #[test]
+fn return_local_functions_are_independent() {
+    let source = r#"
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter1 = makeCounter();
+counter1();
+var counter2 = makeCounter();
+counter2();"#;
+    let output = execute(source);
+    assert_display_snapshot!(output, @"
+1
+1")
+}
+
+#[test]
 fn recursion() {
     let source = r#"
 fun count(n) {
