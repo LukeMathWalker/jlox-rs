@@ -1,5 +1,10 @@
 use crate::resolver::resolved_ast::FunctionDeclarationStatement;
+use crate::resolver::BindingId;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::ops::Deref;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub(super) enum LoxValue {
@@ -7,7 +12,7 @@ pub(super) enum LoxValue {
     Null,
     String(String),
     Number(f64),
-    Function(Function),
+    Function(Rc<RefCell<Function>>),
 }
 
 impl LoxValue {
@@ -39,17 +44,23 @@ impl Display for LoxValue {
             LoxValue::Null => write!(f, "`nil`"),
             LoxValue::String(s) => s.fmt(f),
             LoxValue::Number(n) => n.fmt(f),
-            LoxValue::Function(function) => function.fmt(f),
+            LoxValue::Function(function) => {
+                let function = function.deref();
+                function.borrow().fmt(f)
+            }
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct Function(pub(super) FunctionDeclarationStatement);
+pub(super) struct Function {
+    pub(super) definition: FunctionDeclarationStatement,
+    pub(super) captured_environment: HashMap<BindingId, Rc<RefCell<LoxValue>>>,
+}
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // TODO: keep the actual name around to get nice printing
-        write!(f, "<fn {}>", self.0.name_binding_id)
+        write!(f, "<fn {}>", self.definition.name_binding_id)
     }
 }

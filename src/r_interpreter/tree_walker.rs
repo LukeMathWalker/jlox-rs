@@ -107,10 +107,31 @@ impl<'a> Interpreter<'a> {
                 }
             }
             Statement::FunctionDeclaration(statement) => {
-                self.bindings.insert(
-                    statement.name_binding_id.clone(),
-                    Rc::new(RefCell::new(LoxValue::Function(Function(statement)))),
-                );
+                let captured_environment =
+                    HashMap::with_capacity(statement.captured_binding_ids.len());
+                let name_binding_id = statement.name_binding_id;
+                let function = Rc::new(RefCell::new(LoxValue::Function(Rc::new(RefCell::new(
+                    Function {
+                        definition: statement,
+                        captured_environment,
+                    },
+                )))));
+                self.bindings.insert(name_binding_id, Rc::clone(&function));
+                if let LoxValue::Function(ref mut function) = *function.borrow_mut() {
+                    let captured_environment = function
+                        .borrow()
+                        .definition
+                        .captured_binding_ids
+                        .iter()
+                        .map(|binding_id| {
+                            (
+                                *binding_id,
+                                Rc::clone(self.bindings.get(&binding_id).unwrap()),
+                            )
+                        })
+                        .collect();
+                    function.borrow_mut().captured_environment = captured_environment;
+                };
             }
             Statement::Return(ReturnStatement { value, .. }) => {
                 let value = self.eval(value)?;
@@ -224,8 +245,9 @@ impl<'a> Interpreter<'a> {
             }
             Expression::VariableAssignment(v) => {
                 let value = self.eval(*v.value)?;
-                self.bindings
-                    .insert(v.binding_id, Rc::new(RefCell::new(value.clone())));
+                self.bindings.entry(v.binding_id).and_modify(|variable| {
+                    *variable.borrow_mut() = value.clone();
+                }).or_insert_with(|| Rc::new(RefCell::new(value.clone())));
                 Ok(value)
             }
             Expression::Call(c) => {
@@ -239,12 +261,13 @@ impl<'a> Interpreter<'a> {
                     LoxValue::Function(callee) => {
                         // This is fine since the parser will reject functions with more than 255 arguments
                         let n_arguments = arguments.len() as u8;
-                        if callee.arity() != n_arguments {
+                        let arity = callee.borrow().arity();
+                        if arity != n_arguments {
                             return Err(
-                                RuntimeError::arity_mismatch(callee.arity(), n_arguments).into()
+                                RuntimeError::arity_mismatch(arity, n_arguments).into()
                             );
                         }
-                        Ok(callee.call(self, arguments)?)
+                        Ok(callee.borrow().call(self, arguments)?)
                     }
                     LoxValue::Boolean(_)
                     | LoxValue::Null
