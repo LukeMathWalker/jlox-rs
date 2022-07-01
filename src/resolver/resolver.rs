@@ -2,6 +2,8 @@ use super::resolved_ast as r_ast;
 use crate::parser::ast;
 use crate::parser::ast::{Expression, Statement};
 use crate::resolver::environment::Environment;
+use crate::resolver::BindingId;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BindingStatus {
@@ -65,23 +67,40 @@ impl Resolver {
                 // binding as assigned.
                 self.environment.assign(name)?;
 
-                let parameters_binding_ids = f
-                    .parameters
-                    .into_iter()
-                    .map(|p| {
-                        let name = p.lexeme();
-                        let parameter_binding_id = self.environment.define(name.clone());
-                        // Function parameters are "assigned" when the function is called, they can
-                        // never be unassigned.
-                        self.environment.assign(name).map(|_| parameter_binding_id)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
+                let function_scope_guard = self.environment.enter_scope();
 
-                let body = self.resolve(f.body)?;
+                let resolve_function_locals = || -> Result<_, anyhow::Error> {
+                    let parameters_binding_ids = f
+                        .parameters
+                        .into_iter()
+                        .map(|p| {
+                            let name = p.lexeme();
+                            let parameter_binding_id = self.environment.define(name.clone());
+                            // Function parameters are "assigned" when the function is called, they can
+                            // never be unassigned.
+                            self.environment.assign(name).map(|_| parameter_binding_id)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    let body = self.resolve(f.body)?;
+                    Ok((parameters_binding_ids, body))
+                };
+                let result = resolve_function_locals();
+                let function_scope = self.environment.exit_scope(function_scope_guard);
+                let (parameters_binding_ids, body) = result?;
+
+                let captured_binding_ids: HashSet<BindingId> = function_scope
+                    .failed_variable_lookups
+                    .into_iter()
+                    // This look-up should never fail, otherwise we would have already gotten a name
+                    // resolution error when resolving the variables mentioned in the function body.
+                    .map(|variable_name| self.environment.get(&variable_name).unwrap().0)
+                    .collect();
 
                 r_ast::Statement::FunctionDeclaration(r_ast::FunctionDeclarationStatement {
                     name_binding_id,
                     parameters_binding_ids,
+                    captured_binding_ids,
                     body,
                 })
             }

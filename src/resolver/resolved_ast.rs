@@ -1,5 +1,6 @@
 use crate::resolver::BindingId;
 use crate::scanner::Token;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub enum Statement {
@@ -32,6 +33,7 @@ pub struct VariableDeclarationStatement {
 pub struct FunctionDeclarationStatement {
     pub name_binding_id: BindingId,
     pub parameters_binding_ids: Vec<BindingId>,
+    pub captured_binding_ids: HashSet<BindingId>,
     pub body: Vec<Statement>,
 }
 

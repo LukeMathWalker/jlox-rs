@@ -1,7 +1,7 @@
 use crate::resolver::resolver::BindingStatus;
 use crate::resolver::BindingId;
 use drop_bomb::DropBomb;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -25,10 +25,10 @@ impl Environment {
         ScopeGuard(DropBomb::new("You forgot to close a scope"))
     }
 
-    pub(in crate::resolver) fn exit_scope(&mut self, mut guard: ScopeGuard) {
+    pub(in crate::resolver) fn exit_scope(&mut self, mut guard: ScopeGuard) -> Scope {
         guard.0.defuse();
         let parent_scope = self.parent_scopes.pop().unwrap();
-        self.current_scope = parent_scope;
+        std::mem::replace(&mut self.current_scope, parent_scope)
     }
 
     pub(in crate::resolver) fn define(&mut self, variable_name: String) -> BindingId {
@@ -55,13 +55,13 @@ impl Environment {
     }
 
     pub(in crate::resolver) fn get(
-        &self,
+        &mut self,
         variable_name: &str,
     ) -> Result<(BindingId, BindingStatus), anyhow::Error> {
         if let Some(value) = self.current_scope.get(variable_name) {
             return Ok(value);
         }
-        for scope in self.parent_scopes.iter().rev() {
+        for scope in self.parent_scopes.iter_mut().rev() {
             if let Some(value) = scope.get(variable_name) {
                 return Ok(value);
             }
@@ -73,6 +73,12 @@ impl Environment {
 #[derive(Debug, Clone, Default)]
 pub(in crate::resolver) struct Scope {
     bindings: HashMap<String, (BindingId, BindingStatus)>,
+    // We keep track of all the resolution failures encountered
+    // when we perform a variable lookup for this scope.
+    // This can be used to determine what non-local variables are required
+    // to successfully execute the code in this scope - e.g. what values from the
+    // parent scopes have been captured by a closure.
+    pub(in crate::resolver) failed_variable_lookups: HashSet<String>,
 }
 
 impl Scope {
@@ -86,7 +92,11 @@ impl Scope {
 
     fn assign(&mut self, variable_name: &str) -> Result<BindingId, ()> {
         match self.bindings.get_mut(variable_name) {
-            None => Err(()),
+            None => {
+                self.failed_variable_lookups
+                    .insert(variable_name.to_owned());
+                Err(())
+            }
             Some(slot) => {
                 slot.1 = BindingStatus::Initialized;
                 Ok(slot.0.clone())
@@ -94,8 +104,13 @@ impl Scope {
         }
     }
 
-    fn get(&self, variable_name: &str) -> Option<(BindingId, BindingStatus)> {
-        self.bindings.get(variable_name).cloned()
+    fn get(&mut self, variable_name: &str) -> Option<(BindingId, BindingStatus)> {
+        let v = self.bindings.get(variable_name).cloned();
+        if v.is_none() {
+            self.failed_variable_lookups
+                .insert(variable_name.to_owned());
+        }
+        v
     }
 }
 
