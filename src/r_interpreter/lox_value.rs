@@ -3,7 +3,6 @@ use crate::resolver::BindingId;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -12,7 +11,7 @@ pub(super) enum LoxValue {
     Null,
     String(String),
     Number(f64),
-    Function(Rc<RefCell<Function>>),
+    Function(Function),
 }
 
 impl LoxValue {
@@ -44,10 +43,7 @@ impl Display for LoxValue {
             LoxValue::Null => write!(f, "`nil`"),
             LoxValue::String(s) => s.fmt(f),
             LoxValue::Number(n) => n.fmt(f),
-            LoxValue::Function(function) => {
-                let function = function.deref();
-                function.borrow().fmt(f)
-            }
+            LoxValue::Function(function) => function.fmt(f),
         }
     }
 }

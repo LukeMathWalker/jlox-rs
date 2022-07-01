@@ -11,6 +11,7 @@ use crate::scanner::{Scanner, Token, TokenDiscriminant};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Write;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Mutex;
 
@@ -107,31 +108,37 @@ impl<'a> Interpreter<'a> {
                 }
             }
             Statement::FunctionDeclaration(statement) => {
-                let captured_environment =
-                    HashMap::with_capacity(statement.captured_binding_ids.len());
                 let name_binding_id = statement.name_binding_id;
-                let function = Rc::new(RefCell::new(LoxValue::Function(Rc::new(RefCell::new(
-                    Function {
-                        definition: statement,
-                        captured_environment,
-                    },
-                )))));
-                self.bindings.insert(name_binding_id, Rc::clone(&function));
-                if let LoxValue::Function(ref mut function) = *function.borrow_mut() {
-                    let captured_environment = function
-                        .borrow()
-                        .definition
-                        .captured_binding_ids
-                        .iter()
-                        .map(|binding_id| {
-                            (
-                                *binding_id,
-                                Rc::clone(self.bindings.get(&binding_id).unwrap()),
-                            )
-                        })
-                        .collect();
-                    function.borrow_mut().captured_environment = captured_environment;
-                };
+                // We cannot perform the resolution of the captured variables here
+                // because it would break for recursive function: the function itself is not
+                // yet registered against the bindings map!
+                // To work around the issue, we do a bit of a dance:
+                // - Define a function slot with a dummy captured environment;
+                // - Register the binding;
+                // - Resolve the captured environment bindings;
+                // - Place the actual function into the function slot.
+                let dummy_function = Rc::new(RefCell::new(LoxValue::Function(Function {
+                    definition: statement.clone(),
+                    captured_environment: HashMap::new(),
+                })));
+                self.bindings
+                    .insert(name_binding_id, Rc::clone(&dummy_function));
+
+                let captured_environment = statement
+                    .captured_binding_ids
+                    .iter()
+                    .map(|binding_id| {
+                        (
+                            *binding_id,
+                            Rc::clone(self.bindings.get(&binding_id).unwrap()),
+                        )
+                    })
+                    .collect();
+                let function = LoxValue::Function(Function {
+                    definition: statement,
+                    captured_environment,
+                });
+                *dummy_function.deref().borrow_mut() = function;
             }
             Statement::Return(ReturnStatement { value, .. }) => {
                 let value = self.eval(value)?;
@@ -261,13 +268,13 @@ impl<'a> Interpreter<'a> {
                     LoxValue::Function(callee) => {
                         // This is fine since the parser will reject functions with more than 255 arguments
                         let n_arguments = arguments.len() as u8;
-                        let arity = callee.borrow().arity();
+                        let arity = callee.arity();
                         if arity != n_arguments {
                             return Err(
                                 RuntimeError::arity_mismatch(arity, n_arguments).into()
                             );
                         }
-                        Ok(callee.borrow().call(self, arguments)?)
+                        Ok(callee.call(self, arguments)?)
                     }
                     LoxValue::Boolean(_)
                     | LoxValue::Null
