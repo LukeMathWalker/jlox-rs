@@ -108,7 +108,7 @@ impl<'a> Interpreter<'a> {
             }
             Statement::FunctionDeclaration(statement) => {
                 self.bindings.insert(
-                    statement.name_binding_id,
+                    statement.name_binding_id.clone(),
                     Rc::new(RefCell::new(LoxValue::Function(Function(statement)))),
                 );
             }

@@ -13,14 +13,14 @@ pub struct Environment {
 impl Environment {
     pub fn new() -> Self {
         Self {
-            current_scope: Scope::new(ScopeType::Other),
+            current_scope: Scope::default(),
             parent_scopes: vec![],
             binding_id_cursor: 0,
         }
     }
 
-    pub(in crate::resolver) fn enter_scope(&mut self, type_: ScopeType) -> ScopeGuard {
-        let enclosing_scope = std::mem::replace(&mut self.current_scope, Scope::new(type_));
+    pub(in crate::resolver) fn enter_scope(&mut self) -> ScopeGuard {
+        let enclosing_scope = std::mem::take(&mut self.current_scope);
         self.parent_scopes.push(enclosing_scope);
         ScopeGuard(DropBomb::new("You forgot to close a scope"))
     }
@@ -70,33 +70,18 @@ impl Environment {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(in crate::resolver) struct Scope {
     bindings: HashMap<String, (BindingId, BindingStatus)>,
-    type_: ScopeType,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(super) enum ScopeType {
-    Function,
-    Other,
 }
 
 impl Scope {
-    fn new(type_: ScopeType) -> Self {
-        Self {
-            bindings: Default::default(),
-            type_,
-        }
-    }
     fn define(&mut self, variable_name: String, binding_id: u64) -> BindingId {
-        let binding_id = match self.type_ {
-            ScopeType::Function => BindingId::FunctionLocal(binding_id),
-            ScopeType::Other => BindingId::Predetermined(binding_id),
-        };
-        self.bindings
-            .insert(variable_name, (binding_id, BindingStatus::Uninitialized));
-        binding_id
+        self.bindings.insert(
+            variable_name,
+            (BindingId(binding_id), BindingStatus::Uninitialized),
+        );
+        BindingId(binding_id)
     }
 
     fn assign(&mut self, variable_name: &str) -> Result<BindingId, ()> {
@@ -104,7 +89,7 @@ impl Scope {
             None => Err(()),
             Some(slot) => {
                 slot.1 = BindingStatus::Initialized;
-                Ok(slot.0)
+                Ok(slot.0.clone())
             }
         }
     }
