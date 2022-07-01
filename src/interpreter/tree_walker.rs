@@ -1,45 +1,32 @@
-use crate::interpreter::environment::Environment;
-use crate::interpreter::lox_callable::LoxCallable;
-use crate::interpreter::lox_value::{Function, LoxValue};
-use crate::parser::ast::{
-    BinaryExpression, BlockStatement, ExpressionStatement, IfElseStatement, LiteralExpression,
-    PrintStatement, ReturnStatement, Statement, UnaryExpression, VariableDeclarationStatement,
-    WhileStatement,
+use super::lox_callable::LoxCallable;
+use super::lox_value::{Function, LoxValue};
+use crate::parser::Parser;
+use crate::resolver::resolved_ast::{
+    BinaryExpression, BlockStatement, Expression, ExpressionStatement, IfElseStatement,
+    LiteralExpression, PrintStatement, ReturnStatement, Statement, UnaryExpression,
+    VariableDeclarationStatement, WhileStatement,
 };
-use crate::parser::{ast::Expression, Parser};
+use crate::resolver::{BindingId, Resolver};
 use crate::scanner::{Scanner, Token, TokenDiscriminant};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::Write;
+use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::Mutex;
 
 pub struct Interpreter<'a> {
-    pub(in crate::interpreter) environment: Rc<RefCell<Environment>>,
-    output_stream: Rc<Mutex<dyn Write + 'a>>,
+    pub(super) bindings: HashMap<BindingId, Rc<RefCell<LoxValue>>>,
+    output_stream: Rc<RefCell<dyn Write + 'a>>,
 }
 
 impl<'a> Interpreter<'a> {
-    pub fn new<OutputStream>(output: OutputStream, environment: Rc<RefCell<Environment>>) -> Self
+    pub fn new<OutputStream>(output: OutputStream) -> Self
     where
         OutputStream: Write + 'a,
     {
         Self {
-            environment,
-            output_stream: Rc::new(Mutex::new(output)),
-        }
-    }
-
-    /// Create a new interpreter instance that inherits the global scope and shares the same
-    /// output stream.
-    ///
-    /// This is used in the implementation of function calls.
-    pub(in crate::interpreter) fn fork(
-        &self,
-        environment: Rc<RefCell<Environment>>,
-    ) -> Interpreter<'a> {
-        Interpreter {
-            environment,
-            output_stream: Rc::clone(&self.output_stream),
+            bindings: HashMap::new(),
+            output_stream: Rc::new(RefCell::new(output)),
         }
     }
 
@@ -51,6 +38,9 @@ impl<'a> Interpreter<'a> {
     pub fn execute_raw(&mut self, source: &str) -> Result<(), ExecuteRawError> {
         let statements =
             Parser::parse(Scanner::new(source)).map_err(ExecuteRawError::ParserError)?;
+        let statements = Resolver::new()
+            .resolve(statements)
+            .map_err(ExecuteRawError::NameResolutionError)?;
         self.batch_execute(statements)
             .map_err(ExecuteRawError::RuntimeError)
     }
@@ -72,45 +62,32 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    pub(in crate::interpreter) fn _execute(
-        &mut self,
-        s: Statement,
-    ) -> Result<(), RuntimeErrorOrReturn> {
+    pub(super) fn _execute(&mut self, s: Statement) -> Result<(), RuntimeErrorOrReturn> {
         match s {
             Statement::Expression(ExpressionStatement(e)) => {
                 self.eval(e)?;
             }
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
-                let mut stream = self.output_stream.lock().unwrap();
+                let mut stream = self.output_stream.borrow_mut();
                 writeln!(stream, "{value}").map_err(RuntimeError::failed_to_print)?;
                 stream.flush().map_err(RuntimeError::failed_to_flush)?;
             }
             Statement::VariableDeclaration(VariableDeclarationStatement {
                 initializer,
-                identifier,
+                binding_id,
             }) => {
                 let value = if let Some(initializer) = initializer {
                     self.eval(initializer)?
                 } else {
                     LoxValue::Null
                 };
-                (*self.environment)
-                    .borrow_mut()
-                    .define(identifier.lexeme(), value);
+                self.bindings
+                    .insert(binding_id, Rc::new(RefCell::new(value)));
             }
             Statement::Block(BlockStatement(statements)) => {
-                let guard = (*self.environment).borrow_mut().enter_scope();
-                let mut error = None;
                 for statement in statements {
-                    if let Err(e) = self._execute(statement) {
-                        error = Some(e);
-                        break;
-                    }
-                }
-                (*self.environment).borrow_mut().exit_scope(guard);
-                if let Some(e) = error {
-                    return Err(e);
+                    self._execute(statement)?;
                 }
             }
             Statement::IfElse(IfElseStatement {
@@ -130,20 +107,37 @@ impl<'a> Interpreter<'a> {
                 }
             }
             Statement::FunctionDeclaration(statement) => {
-                let function = Function {
-                    closure: Rc::new(RefCell::new(self.environment.borrow().to_owned())),
-                    declaration: statement,
-                };
-                (*self.environment).borrow_mut().define(
-                    function.declaration.name.clone().lexeme(),
-                    LoxValue::Function(function.clone()),
-                );
-                // We need the function itself to exist in the environment it closes over,
-                // otherwise recursion won't work.
-                (*function.closure).borrow_mut().define(
-                    function.declaration.name.clone().lexeme(),
-                    LoxValue::Function(function.clone()),
-                );
+                let name_binding_id = statement.name_binding_id;
+                // We cannot perform the resolution of the captured variables here
+                // because it would break for recursive function: the function itself is not
+                // yet registered against the bindings map!
+                // To work around the issue, we do a bit of a dance:
+                // - Define a function slot with a dummy captured environment;
+                // - Register the binding;
+                // - Resolve the captured environment bindings;
+                // - Place the actual function into the function slot.
+                let dummy_function = Rc::new(RefCell::new(LoxValue::Function(Function {
+                    definition: statement.clone(),
+                    captured_environment: HashMap::new(),
+                })));
+                self.bindings
+                    .insert(name_binding_id, Rc::clone(&dummy_function));
+
+                let captured_environment = statement
+                    .captured_binding_ids
+                    .iter()
+                    .map(|binding_id| {
+                        (
+                            *binding_id,
+                            Rc::clone(self.bindings.get(&binding_id).unwrap()),
+                        )
+                    })
+                    .collect();
+                let function = LoxValue::Function(Function {
+                    definition: statement,
+                    captured_environment,
+                });
+                *dummy_function.deref().borrow_mut() = function;
             }
             Statement::Return(ReturnStatement { value, .. }) => {
                 let value = self.eval(value)?;
@@ -249,15 +243,17 @@ impl<'a> Interpreter<'a> {
             },
             Expression::Grouping(g) => self.eval(*g.0),
             Expression::VariableReference(v) => {
-                let name = v.identifier.lexeme();
-                Ok((*self.environment).borrow().get_value(&name)?)
+                Ok(self
+                    .bindings
+                    .get(&v.binding_id)
+                    .expect("Failed to look up the value of a variable reference via its binding id. This is an interpreter bug.")
+                    .borrow().to_owned())
             }
             Expression::VariableAssignment(v) => {
-                let name = v.identifier.lexeme();
                 let value = self.eval(*v.value)?;
-                (*self.environment)
-                    .borrow_mut()
-                    .assign(name, value.clone())?;
+                self.bindings.entry(v.binding_id).and_modify(|variable| {
+                    *variable.borrow_mut() = value.clone();
+                }).or_insert_with(|| Rc::new(RefCell::new(value.clone())));
                 Ok(value)
             }
             Expression::Call(c) => {
@@ -271,9 +267,10 @@ impl<'a> Interpreter<'a> {
                     LoxValue::Function(callee) => {
                         // This is fine since the parser will reject functions with more than 255 arguments
                         let n_arguments = arguments.len() as u8;
-                        if callee.arity() != n_arguments {
+                        let arity = callee.arity();
+                        if arity != n_arguments {
                             return Err(
-                                RuntimeError::arity_mismatch(callee.arity(), n_arguments).into()
+                                RuntimeError::arity_mismatch(arity, n_arguments).into()
                             );
                         }
                         Ok(callee.call(self, arguments)?)
@@ -307,13 +304,15 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum ExecuteRawError {
     #[error("Failed to parse the source code")]
-    ParserError(Vec<Statement>),
+    ParserError(Vec<crate::parser::ast::Statement>),
+    #[error(transparent)]
+    NameResolutionError(anyhow::Error),
     #[error(transparent)]
     RuntimeError(RuntimeError),
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(in crate::interpreter) enum RuntimeErrorOrReturn {
+pub(super) enum RuntimeErrorOrReturn {
     #[error(transparent)]
     RuntimeError(#[from] RuntimeError),
     #[error(transparent)]
@@ -322,7 +321,7 @@ pub(in crate::interpreter) enum RuntimeErrorOrReturn {
 
 #[derive(Debug, thiserror::Error)]
 #[error("An early return was encountered")]
-pub(in crate::interpreter) struct Return(pub(in crate::interpreter) LoxValue);
+pub(super) struct Return(pub(super) LoxValue);
 
 #[derive(Debug, thiserror::Error)]
 #[error("An error occurred at runtime. {msg}")]

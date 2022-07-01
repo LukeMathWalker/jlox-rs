@@ -1,11 +1,12 @@
-use crate::interpreter::environment::Environment;
-use crate::parser::ast::FunctionDeclarationStatement;
+use crate::resolver::resolved_ast::FunctionDeclarationStatement;
+use crate::resolver::BindingId;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub(in crate::interpreter) enum LoxValue {
+pub(super) enum LoxValue {
     Boolean(bool),
     Null,
     String(String),
@@ -48,13 +49,14 @@ impl Display for LoxValue {
 }
 
 #[derive(Debug, Clone)]
-pub(in crate::interpreter) struct Function {
-    pub(in crate::interpreter) closure: Rc<RefCell<Environment>>,
-    pub(in crate::interpreter) declaration: FunctionDeclarationStatement,
+pub(super) struct Function {
+    pub(super) definition: FunctionDeclarationStatement,
+    pub(super) captured_environment: HashMap<BindingId, Rc<RefCell<LoxValue>>>,
 }
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<fn {}>", self.declaration.name.clone().lexeme())
+        // TODO: keep the actual name around to get nice printing
+        write!(f, "<fn {}>", self.definition.name_binding_id)
     }
 }

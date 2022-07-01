@@ -1,4 +1,4 @@
-use jlox::r_interpreter::{ExecuteRawError, Interpreter};
+use jlox::{ExecuteRawError, Interpreter};
 
 /// Execute the provided lox source code.
 /// It returns the program's output stream.
