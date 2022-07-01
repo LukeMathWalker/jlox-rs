@@ -13,11 +13,10 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::Mutex;
 
 pub struct Interpreter<'a> {
     pub(super) bindings: HashMap<BindingId, Rc<RefCell<LoxValue>>>,
-    output_stream: Rc<Mutex<dyn Write + 'a>>,
+    output_stream: Rc<RefCell<dyn Write + 'a>>,
 }
 
 impl<'a> Interpreter<'a> {
@@ -27,7 +26,7 @@ impl<'a> Interpreter<'a> {
     {
         Self {
             bindings: HashMap::new(),
-            output_stream: Rc::new(Mutex::new(output)),
+            output_stream: Rc::new(RefCell::new(output)),
         }
     }
 
@@ -70,7 +69,7 @@ impl<'a> Interpreter<'a> {
             }
             Statement::Print(PrintStatement(e)) => {
                 let value = self.eval(e)?;
-                let mut stream = self.output_stream.lock().unwrap();
+                let mut stream = self.output_stream.borrow_mut();
                 writeln!(stream, "{value}").map_err(RuntimeError::failed_to_print)?;
                 stream.flush().map_err(RuntimeError::failed_to_flush)?;
             }
